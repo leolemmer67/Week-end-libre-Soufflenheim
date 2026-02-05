@@ -3,165 +3,214 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Positionner les Postes</title>
+    
+    <!-- 🛑 C'EST CETTE LIGNE QUI CORRIGE L'ERREUR "FAILED TO FETCH" -->
+    <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;">
+
+    <title>Positionnement des Postes (Admin)</title>
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 20px; background: #333; color: white; }
+        body { font-family: sans-serif; text-align: center; background: #222; color: white; margin: 0; padding: 20px; }
         
+        h1 { margin-bottom: 10px; }
+        p { color: #aaa; margin-bottom: 20px; }
+
+        /* Conteneur de l'image */
         #map-container {
             position: relative;
             display: inline-block;
-            border: 2px solid white;
-            max-width: 100%;
+            border: 2px solid #555;
+            cursor: crosshair;
         }
 
-        /* L'image de l'étang */
-        #pond-img {
+        #pond-image {
             display: block;
-            max-width: 1000px; /* Taille de travail */
+            max-width: 1000px;
             width: 100%;
             height: auto;
+            pointer-events: none; /* Empêche de glisser l'image elle-même */
         }
 
-        /* Les boutons à déplacer */
-        .draggable-poste {
+        /* Les bulles des postes */
+        .draggable {
             position: absolute;
             width: 30px; height: 30px;
             background: #22c55e;
             color: white;
             border: 2px solid white;
             border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
             font-weight: bold;
-            cursor: move;
+            display: flex; align-items: center; justify-content: center;
+            cursor: grab;
             user-select: none;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.5);
-            z-index: 100;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            z-index: 10;
         }
+        .draggable:active { cursor: grabbing; background: #16a34a; transform: scale(1.1); }
 
-        .draggable-poste:active { background: #ef4444; transform: scale(1.2); }
-
-        #controls { margin-bottom: 20px; position: sticky; top: 0; background: #333; z-index: 200; padding: 10px;}
-        button.save-btn { padding: 10px 20px; font-size: 1.2rem; background: #3b82f6; color: white; border: none; cursor: pointer; border-radius: 5px; }
-        button.save-btn:hover { background: #2563eb; }
-        a { color: #aaa; text-decoration: none; margin-right: 20px; }
+        .btn-save {
+            margin-top: 20px;
+            padding: 15px 30px;
+            font-size: 18px;
+            background: #0ea5e9;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .btn-save:hover { background: #0284c7; }
+        
+        .back-link { display: block; margin-top: 20px; color: #888; text-decoration: none; }
     </style>
 </head>
 <body>
 
-    <div id="controls">
-        <a href="admin.html">← Retour Admin</a>
-        <span>Déplacez les ronds sur la carte, puis cliquez sur : </span>
-        <button class="save-btn" onclick="sauvegarderPositions()">💾 SAUVEGARDER</button>
-    </div>
+    <h1>📍 Mode Édition : Place tes postes</h1>
+    <p>Glisse les numéros au bon endroit sur la carte, puis clique sur "SAUVEGARDER".</p>
 
     <div id="map-container">
-        <!-- Assure-toi que l'image s'appelle bien pond.jpg -->
-        <img src="pond.jpg" id="pond-img" alt="Plan Etang">
-        <!-- Les postes seront générés ici -->
+        <!-- L'image de l'étang -->
+        <img src="pond.jpg" id="pond-image" alt="Plan Étang">
+        
+        <!-- Les Postes (positions par défaut 0,0 au début) -->
+        <div class="draggable" id="p1" data-id="1" style="top:10%; left:10%">1</div>
+        <div class="draggable" id="p2" data-id="2" style="top:10%; left:15%">2</div>
+        <div class="draggable" id="p3" data-id="3" style="top:10%; left:20%">3</div>
+        <div class="draggable" id="p4" data-id="4" style="top:10%; left:25%">4</div>
+        <div class="draggable" id="p5" data-id="5" style="top:10%; left:30%">5</div>
+        <div class="draggable" id="p6" data-id="6" style="top:10%; left:35%">6</div>
+        <div class="draggable" id="p7" data-id="7" style="top:10%; left:40%">7</div>
+        <div class="draggable" id="p8" data-id="8" style="top:10%; left:45%">8</div>
+        <div class="draggable" id="p9" data-id="9" style="top:10%; left:50%">9</div>
+        <div class="draggable" id="p10" data-id="10" style="top:10%; left:55%">10</div>
     </div>
 
+    <br>
+    <button class="btn-save" onclick="sauvegarder()">💾 SAUVEGARDER LES POSITIONS</button>
+    
+    <a href="admin.html" class="back-link">← Retour Admin</a>
+
+    <!-- SCRIPT -->
     <script type="module">
         import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
 
+        // Tes identifiants Supabase
         const SUPABASE_URL = 'https://drhsdlrxhkbamwcskblr.supabase.co'
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyaHNkbHJ4aGtiYW13Y3NrYmxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg1ODcyMjYsImV4cCI6MjA1NDE2MzIyNn0.S5v0-u1VvLGe_3iS-bTbQrnT9p0k9ZkwG-iS_Wiw7pQ'
         const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 
+        // Gestion du Drag & Drop
+        let activeItem = null;
+        let activeX = 0;
+        let activeY = 0;
         const container = document.getElementById('map-container');
 
-        // 1. Charger les positions actuelles
-        async function loadPositions() {
-            const { data, error } = await supabase.from('post_positions').select('*');
+        document.querySelectorAll('.draggable').forEach(item => {
+            item.addEventListener('mousedown', dragStart);
+            item.addEventListener('touchstart', dragStart, {passive: false});
+        });
+
+        function dragStart(e) {
+            activeItem = e.target;
             
-            if(data) {
-                data.forEach(pos => {
-                    createDraggablePoste(pos.poste_numero, pos.top_pos, pos.left_pos);
-                });
+            // Calculer l'offset pour attraper l'élément par le milieu/endroit cliqué
+            const rect = activeItem.getBoundingClientRect();
+            
+            if (e.type === 'touchstart') {
+                activeX = e.touches[0].clientX - rect.left;
+                activeY = e.touches[0].clientY - rect.top;
             } else {
-                // Si vide, créer 10 par défaut
-                for(let i=1; i<=10; i++) createDraggablePoste(i, '10%', '10%');
+                activeX = e.clientX - rect.left;
+                activeY = e.clientY - rect.top;
             }
+
+            document.addEventListener('mouseup', dragEnd);
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('touchend', dragEnd);
+            document.addEventListener('touchmove', drag, {passive: false});
         }
 
-        // 2. Créer un bouton déplaçable
-        function createDraggablePoste(num, top, left) {
-            const el = document.createElement('div');
-            el.className = 'draggable-poste';
-            el.textContent = num;
-            el.dataset.num = num;
-            el.style.top = top;
-            el.style.left = left;
-            
-            // Logique de Drag & Drop (Souris + Tactile)
-            addDragFunctionality(el);
-            
-            container.appendChild(el);
+        function drag(e) {
+            if (!activeItem) return;
+            e.preventDefault();
+
+            const containerRect = container.getBoundingClientRect();
+            let clientX, clientY;
+
+            if (e.type === 'touchmove') {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+
+            // Calculer la nouvelle position relative au conteneur
+            let x = clientX - containerRect.left - activeX;
+            let y = clientY - containerRect.top - activeY;
+
+            // Convertir en pourcentage pour que ça reste responsive
+            let xPercent = (x / containerRect.width) * 100;
+            let yPercent = (y / containerRect.height) * 100;
+
+            activeItem.style.left = xPercent + '%';
+            activeItem.style.top = yPercent + '%';
         }
 
-        // 3. Logique de déplacement
-        function addDragFunctionality(elmnt) {
-            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-            elmnt.onmousedown = dragMouseDown;
-
-            function dragMouseDown(e) {
-                e = e || window.event;
-                e.preventDefault();
-                pos3 = e.clientX;
-                pos4 = e.clientY;
-                document.onmouseup = closeDragElement;
-                document.onmousemove = elementDrag;
-            }
-
-            function elementDrag(e) {
-                e = e || window.event;
-                e.preventDefault();
-                // Calculer le déplacement
-                pos1 = pos3 - e.clientX;
-                pos2 = pos4 - e.clientY;
-                pos3 = e.clientX;
-                pos4 = e.clientY;
-                
-                // Appliquer nouvelle position en pixels temporairement
-                elmnt.style.top = (elmnt.offsetTop - pos2) + "px";
-                elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
-            }
-
-            function closeDragElement() {
-                // Arrêt du déplacement
-                document.onmouseup = null;
-                document.onmousemove = null;
-            }
+        function dragEnd() {
+            activeItem = null;
+            document.removeEventListener('mouseup', dragEnd);
+            document.removeEventListener('mousemove', drag);
+            document.removeEventListener('touchend', dragEnd);
+            document.removeEventListener('touchmove', drag);
         }
 
-        // 4. Sauvegarder dans Supabase (Convertir px en %)
-        window.sauvegarderPositions = async function() {
-            const img = document.getElementById('pond-img');
-            const w = img.clientWidth;
-            const h = img.clientHeight;
-            
+        // Fonction de sauvegarde globale
+        window.sauvegarder = async function() {
             const updates = [];
-            const postes = document.querySelectorAll('.draggable-poste');
-
-            postes.forEach(p => {
-                // Conversion en pourcentage pour être responsive
-                let topPct = (p.offsetTop / h) * 100;
-                let leftPct = (p.offsetLeft / w) * 100;
+            
+            document.querySelectorAll('.draggable').forEach(item => {
+                const id = parseInt(item.getAttribute('data-id'));
+                const top = item.style.top;
+                const left = item.style.left;
 
                 updates.push({
-                    poste_numero: p.dataset.num,
-                    top_pos: topPct.toFixed(2) + '%',
-                    left_pos: leftPct.toFixed(2) + '%'
+                    poste_numero: id,
+                    top_pos: top,
+                    left_pos: left
                 });
             });
 
-            // Sauvegarde en base (Upsert)
-            const { error } = await supabase.from('post_positions').upsert(updates, { onConflict: 'poste_numero' });
+            console.log("Envoi vers Supabase...", updates);
 
-            if(!error) alert("✅ Positions sauvegardées ! Les visiteurs verront ce plan.");
-            else alert("❌ Erreur sauvegarde: " + error.message);
+            // Utilisation de upsert pour mettre à jour ou créer
+            const { data, error } = await supabase
+                .from('post_positions')
+                .upsert(updates, { onConflict: 'poste_numero' });
+
+            if (error) {
+                console.error("Erreur Supabase:", error);
+                alert("❌ Erreur sauvegarde: " + error.message);
+            } else {
+                alert("✅ Positions sauvegardées avec succès !");
+            }
         }
 
-        loadPositions();
+        // Au chargement, récupérer les positions existantes pour ne pas tout refaire
+        async function loadExistingPositions() {
+            const { data } = await supabase.from('post_positions').select('*');
+            if(data) {
+                data.forEach(pos => {
+                    const el = document.getElementById('p' + pos.poste_numero);
+                    if(el) {
+                        el.style.top = pos.top_pos;
+                        el.style.left = pos.left_pos;
+                    }
+                });
+            }
+        }
+
+        loadExistingPositions();
+
     </script>
 </body>
 </html>
