@@ -5,106 +5,172 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Positionnement des Postes</title>
     
-    <!-- 1. On charge Supabase de façon classique -->
+    <!-- Importation simple de Supabase -->
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
     <style>
-        body { font-family: sans-serif; text-align: center; background: #222; color: white; padding: 20px; }
-        #map-container { position: relative; display: inline-block; border: 2px solid #555; }
-        #pond-image { display: block; max-width: 1000px; width: 100%; height: auto; pointer-events: none; }
-        .draggable {
-            position: absolute; width: 30px; height: 30px; background: #22c55e;
-            color: white; border: 2px solid white; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            cursor: grab; font-weight: bold; user-select: none;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+        body { font-family: sans-serif; text-align: center; background: #222; color: white; padding: 20px; margin: 0; }
+        
+        /* Conteneur Map */
+        #map-container {
+            position: relative;
+            display: inline-block;
+            border: 2px solid #555;
+            margin-top: 20px;
         }
-        .btn-save { margin-top: 20px; padding: 15px 30px; background: #0ea5e9; color: white; border: none; cursor: pointer; font-size: 18px; border-radius: 5px; }
+
+        #pond-image {
+            display: block;
+            max-width: 100%;
+            height: auto;
+            /* Empêche de sélectionner l'image sur mobile */
+            user-select: none;
+            pointer-events: none; 
+        }
+
+        /* Les Postes (Bulles) */
+        .draggable {
+            position: absolute;
+            width: 30px; height: 30px;
+            background: #22c55e;
+            color: white;
+            border: 2px solid white;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold;
+            cursor: grab;
+            user-select: none;
+            touch-action: none; /* Crucial pour le drag sur mobile */
+            z-index: 100;
+        }
+
+        .draggable:active { transform: scale(1.2); cursor: grabbing; background: #facc15; }
+
+        /* Boutons */
+        .btn-save {
+            margin-top: 20px;
+            padding: 15px 40px;
+            background: #0ea5e9;
+            color: white;
+            border: none;
+            font-size: 20px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .btn-save:hover { background: #0284c7; }
+
+        a { color: #aaa; text-decoration: none; display: inline-block; margin-top: 20px;}
     </style>
 </head>
 <body>
 
-    <h1>📍 Positionnement des Postes</h1>
+    <h1>📍 Configurer les Postes</h1>
+    <p>Glisse les bulles sur l'image et clique sur Sauvegarder.</p>
+
     <div id="map-container">
+        <!-- Mets ici le nom exact de ton image (pond.jpg, etang.png...) -->
         <img src="pond.jpg" id="pond-image" alt="Plan Étang">
         
-        <!-- Postes -->
+        <!-- Les 10 postes -->
         <div class="draggable" id="p1" data-id="1" style="top:10%; left:10%">1</div>
-        <div class="draggable" id="p2" data-id="2" style="top:10%; left:15%">2</div>
-        <div class="draggable" id="p3" data-id="3" style="top:10%; left:20%">3</div>
-        <div class="draggable" id="p4" data-id="4" style="top:10%; left:25%">4</div>
-        <div class="draggable" id="p5" data-id="5" style="top:10%; left:30%">5</div>
-        <div class="draggable" id="p6" data-id="6" style="top:10%; left:35%">6</div>
-        <div class="draggable" id="p7" data-id="7" style="top:10%; left:40%">7</div>
-        <div class="draggable" id="p8" data-id="8" style="top:10%; left:45%">8</div>
-        <div class="draggable" id="p9" data-id="9" style="top:10%; left:50%">9</div>
-        <div class="draggable" id="p10" data-id="10" style="top:10%; left:55%">10</div>
+        <div class="draggable" id="p2" data-id="2" style="top:10%; left:18%">2</div>
+        <div class="draggable" id="p3" data-id="3" style="top:10%; left:26%">3</div>
+        <div class="draggable" id="p4" data-id="4" style="top:10%; left:34%">4</div>
+        <div class="draggable" id="p5" data-id="5" style="top:10%; left:42%">5</div>
+        <div class="draggable" id="p6" data-id="6" style="top:10%; left:50%">6</div>
+        <div class="draggable" id="p7" data-id="7" style="top:10%; left:58%">7</div>
+        <div class="draggable" id="p8" data-id="8" style="top:10%; left:66%">8</div>
+        <div class="draggable" id="p9" data-id="9" style="top:10%; left:74%">9</div>
+        <div class="draggable" id="p10" data-id="10" style="top:10%; left:82%">10</div>
     </div>
 
     <br>
-    <button class="btn-save" onclick="sauvegarder()">💾 SAUVEGARDER</button>
-    <br><br>
-    <a href="admin.html" style="color: #aaa;">Retour Admin</a>
+    <button class="btn-save" onclick="sauvegarder()">💾 SAUVEGARDER POSITIONS</button>
+    <br>
+    <a href="admin.html">← Retour Admin</a>
 
     <script>
-        // 2. Initialisation Supabase (Version classique)
+        // CONFIGURATION SUPABASE
         const supabaseUrl = 'https://drhsdlrxhkbamwcskblr.supabase.co';
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyaHNkbHJ4aGtiYW13Y3NrYmxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg1ODcyMjYsImV4cCI6MjA1NDE2MzIyNn0.S5v0-u1VvLGe_3iS-bTbQrnT9p0k9ZkwG-iS_Wiw7pQ';
         const client = supabase.createClient(supabaseUrl, supabaseKey);
 
-        // --- Logique Drag & Drop (Version Mobile & PC) ---
+        // --- GESTION DU DRAG & DROP (SOURIS + DOIGT) ---
         let activeItem = null;
-        let activeX = 0, activeY = 0;
+        let startX = 0, startY = 0;
+        let initialLeft = 0, initialTop = 0;
         const container = document.getElementById('map-container');
 
         document.querySelectorAll('.draggable').forEach(item => {
+            // Souris
             item.addEventListener('mousedown', dragStart);
-            item.addEventListener('touchstart', dragStart, {passive: false});
+            // Tactile
+            item.addEventListener('touchstart', dragStart, { passive: false });
         });
 
         function dragStart(e) {
+            e.preventDefault();
             activeItem = e.target;
-            const rect = activeItem.getBoundingClientRect();
-            const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
-            const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
             
-            activeX = clientX - rect.left;
-            activeY = clientY - rect.top;
+            // Position initiale de la souris/doigt
+            if(e.type === 'touchstart') {
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+            } else {
+                startX = e.clientX;
+                startY = e.clientY;
+            }
 
+            // Position actuelle de l'élément (en pixels pour le calcul)
+            initialLeft = activeItem.offsetLeft;
+            initialTop = activeItem.offsetTop;
+
+            // Écouteurs globaux pour suivre le mouvement
             document.addEventListener('mouseup', dragEnd);
-            document.addEventListener('mousemove', drag);
+            document.addEventListener('mousemove', dragMove);
             document.addEventListener('touchend', dragEnd);
-            document.addEventListener('touchmove', drag, {passive: false});
+            document.addEventListener('touchmove', dragMove, { passive: false });
         }
 
-        function drag(e) {
+        function dragMove(e) {
             if (!activeItem) return;
-            e.preventDefault();
+            e.preventDefault(); // Empêche le scroll de la page sur mobile
+
+            let currentX, currentY;
+
+            if(e.type === 'touchmove') {
+                currentX = e.touches[0].clientX;
+                currentY = e.touches[0].clientY;
+            } else {
+                currentX = e.clientX;
+                currentY = e.clientY;
+            }
+
+            const dx = currentX - startX;
+            const dy = currentY - startY;
+
+            // Calcul en Pourcentage pour que ça reste responsive
             const containerRect = container.getBoundingClientRect();
-            const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
-            const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+            
+            let newLeft = ((initialLeft + dx) / containerRect.width) * 100;
+            let newTop = ((initialTop + dy) / containerRect.height) * 100;
 
-            let x = clientX - containerRect.left - activeX;
-            let y = clientY - containerRect.top - activeY;
-
-            let xPercent = (x / containerRect.width) * 100;
-            let yPercent = (y / containerRect.height) * 100;
-
-            activeItem.style.left = xPercent + '%';
-            activeItem.style.top = yPercent + '%';
+            activeItem.style.left = newLeft + '%';
+            activeItem.style.top = newTop + '%';
         }
 
         function dragEnd() {
             activeItem = null;
             document.removeEventListener('mouseup', dragEnd);
-            document.removeEventListener('mousemove', drag);
+            document.removeEventListener('mousemove', dragMove);
             document.removeEventListener('touchend', dragEnd);
-            document.removeEventListener('touchmove', drag);
+            document.removeEventListener('touchmove', dragMove);
         }
 
-        // --- Sauvegarde ---
+        // --- SAUVEGARDE VERS SUPABASE ---
         async function sauvegarder() {
             const updates = [];
+            
             document.querySelectorAll('.draggable').forEach(item => {
                 updates.push({
                     poste_numero: parseInt(item.getAttribute('data-id')),
@@ -113,24 +179,29 @@
                 });
             });
 
-            console.log("Sauvegarde en cours...");
-            
-            // On utilise .upsert
-            const { error } = await client
+            console.log("Envoi...", updates);
+
+            const { data, error } = await client
                 .from('post_positions')
                 .upsert(updates, { onConflict: 'poste_numero' });
 
             if (error) {
-                alert("Erreur: " + error.message);
                 console.error(error);
+                alert("❌ Erreur : " + error.message);
             } else {
-                alert("✅ Positions sauvegardées !");
+                alert("✅ Positions sauvegardées avec succès !");
             }
         }
 
-        // --- Chargement ---
-        async function load() {
+        // --- CHARGEMENT ---
+        async function chargerPositions() {
             const { data, error } = await client.from('post_positions').select('*');
+            
+            if (error) {
+                console.error("Erreur chargement:", error);
+                return;
+            }
+
             if (data) {
                 data.forEach(pos => {
                     const el = document.getElementById('p' + pos.poste_numero);
@@ -141,7 +212,10 @@
                 });
             }
         }
-        load();
+
+        // Lancer le chargement au démarrage
+        chargerPositions();
+
     </script>
 </body>
 </html>
