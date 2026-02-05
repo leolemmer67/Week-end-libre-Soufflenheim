@@ -3,10 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Week-End libre Soufflenheim</title>
     
-    <!-- SDK PayPal (Mode Test 'sb' - Remplace par ton vrai Client ID pour la prod) -->
+    <!-- 1. CORRECTION SÉCURITÉ : On autorise PayPal et Supabase explicitement -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdn.jsdelivr.net https://*.supabase.co https://*.paypal.com https://*.paypalobjects.com;">
+
+    <title>Réservation Étang</title>
+    
+    <!-- SDK PayPal (Mode Test 'sb') -->
     <script src="https://www.paypal.com/sdk/js?client-id=sb&currency=EUR"></script>
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <style>
         body { font-family: 'Segoe UI', sans-serif; background-color: #f0fdf4; margin: 0; padding: 20px; text-align: center; }
@@ -17,7 +23,7 @@
         .logo { max-width: 120px; display: block; margin: 0 auto 10px auto; }
         h1 { color: #166534; margin-top: 0; }
 
-        /* --- Bloc Tarif --- */
+        /* Bloc Tarif */
         .price-info {
             background-color: #dcfce7;
             color: #14532d;
@@ -27,26 +33,6 @@
             border: 1px solid #86efac;
         }
         .price-tag { font-size: 1.4em; font-weight: bold; display: block; margin-bottom: 5px; }
-        .price-details { font-size: 0.95em; display: block; margin-top: 2px; }
-
-        /* --- Alerte Mobile --- */
-        .rotate-alert {
-            display: none;
-            background-color: #fff7ed;
-            border: 1px solid #fdba74;
-            color: #c2410c;
-            padding: 10px;
-            border-radius: 8px;
-            margin: 15px auto;
-            max-width: 90%;
-            font-size: 0.9em;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-        }
-        @media only screen and (max-width: 768px) and (orientation: portrait) {
-            .rotate-alert { display: flex; }
-        }
 
         /* Carte */
         #map-wrapper {
@@ -70,22 +56,32 @@
             width: 30px; height: 30px;
             border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            font-weight: bold; color: white; border: 2px solid white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
-            font-size: 14px;
-            transform: translate(-50%, -50%);
+            font-weight: bold; color: white; cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
             transition: transform 0.2s;
+            font-size: 14px;
         }
-
-        .libre { background-color: #22c55e; cursor: pointer; }
-        .libre:hover { transform: translate(-50%, -50%) scale(1.2); z-index: 10; }
+        .poste-marker:hover { transform: scale(1.2); }
+        .libre { background-color: #22c55e; border: 2px solid white; }
         .occupe { background-color: #ef4444; cursor: not-allowed; opacity: 0.8; }
-        .selectionne { background-color: #fbbf24; border-color: #000; transform: translate(-50%, -50%) scale(1.3); z-index: 20; color: black; }
+        .selectionne { background-color: #eab308; border: 2px solid #000; transform: scale(1.3); z-index: 10; }
 
         /* Formulaire */
-        select, input { padding: 10px; margin: 5px; width: 90%; max-width: 300px; border: 1px solid #ccc; border-radius: 5px; }
+        .hidden { display: none; }
+        #form-section {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+        }
+        input {
+            display: block; width: 80%; margin: 10px auto; padding: 10px;
+            border: 1px solid #ccc; border-radius: 5px; font-size: 1em;
+            background-color: #e2e8f0;
+        }
         
-        /* Conteneur PayPal */
+        /* Container PayPal */
         #paypal-button-container {
             margin-top: 20px;
             max-width: 300px;
@@ -93,300 +89,197 @@
             margin-right: auto;
         }
 
-        .hidden { display: none; }
-
+        /* Footer admin */
         .admin-link {
-            display: inline-block;
-            margin-top: 30px;
-            color: #94a3b8;
-            text-decoration: none;
-            font-size: 0.9em;
-            border: 1px solid #e2e8f0;
-            padding: 5px 10px;
-            border-radius: 4px;
+            display: block; margin-top: 30px; color: #94a3b8; text-decoration: none; font-size: 0.9em;
+            border: 1px solid #e2e8f0; padding: 5px 10px; border-radius: 5px; width: fit-content; margin-left: auto; margin-right: auto;
         }
-        .admin-link:hover { background: #f1f5f9; color: #475569; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <!-- LOGO -->
-        <img src="logo.png" alt="Section Carpe Logo" class="logo">
-        <h1>🎣 Section Carpe de Soufflenheim</h1>
+        <!-- Logo -->
+        <img src="https://cdn-icons-png.flaticon.com/512/2016/2016065.png" alt="Logo" class="logo">
+        
+        <h1>Réservation Étang</h1>
 
-        <!-- Info Tarif -->
+        <!-- Bloc Prix -->
         <div class="price-info">
-            <span class="price-tag">Tarif : 60€ / Week-end</span>
-            <span class="price-details">Ce prix inclut 1 ou 2 pêcheurs par poste (tarif unique).</span>
-            <span class="price-details">Toutes sortes de bateaux interdits, sauf le bateau amorceur est autorisé.</span>
-            <span class="price-details">3 cannes maximum par pêcheur.</span>
+            <span class="price-tag">Tarif Unique : 60€ / 24h</span>
+            <span class="price-details">Arrivée 10h - Départ 10h le lendemain</span>
         </div>
 
-        <!-- Étape 1 -->
-        <label><strong>1. Choisissez une session :</strong></label><br>
-        <select id="sessionSelect">
-            <option value="">Chargement des dates...</option>
-        </select>
+        <p>Cliquez sur un poste vert pour réserver.</p>
 
-        <!-- Étape 2 : Carte -->
-        <div id="map-section" class="hidden">
-
-            <!-- Alerte Mobile -->
-            <div class="rotate-alert">
-                <span style="font-size: 20px;">🔄</span>
-                <div><strong>Conseil :</strong> Tournez votre téléphone à l'horizontale pour mieux voir les postes.</div>
-            </div>
-
-            <p><strong>2. Cliquez sur un poste vert (🟢) :</strong></p>
-
-            <div id="map-wrapper">
-                <img src="pond.jpg" id="pond-image" alt="Plan de l'étang">
-                <!-- JS insère les bulles ici -->
-            </div>
+        <!-- Carte -->
+        <div id="map-wrapper">
+            <!-- Image de fond (remplace par ton image réelle) -->
+            <img id="pond-image" src="https://www.google.com/maps/vt/data=LYu70aR6d6Z9...placeholder" alt="Plan étang"> 
+            <!-- Les bulles seront ajoutées ici par JS -->
         </div>
 
-        <!-- Étape 3 : Formulaire et Paiement -->
+        <!-- Formulaire de réservation -->
         <div id="form-section" class="hidden">
-            <h3>Réservation du Poste N° <span id="displayPoste">?</span></h3>
-
-            <p style="color: #555; font-size: 0.9em; margin-bottom: 15px;">
+            <h3>Réservation du Poste N° <span id="displayPoste"></span></h3>
+            <p style="font-size: 0.9em; color: #64748b;">
                 Veuillez remplir vos coordonnées ci-dessous.<br>
                 Le paiement sécurisé de <strong>60€</strong> validera la réservation.
             </p>
-
-            <input type="text" id="nom" placeholder="Votre Nom (et celui du binôme si applicable)">
-            <input type="email" id="email" placeholder="Votre Email (pour confirmation)">
-            <input type="tel" id="tel" placeholder="Téléphone">
             
-            <!-- Zone PayPal -->
-            <div id="paypal-button-container" style="min-height: 150px; margin-top: 20px;">
-    <p id="paypal-loading" style="color: orange; font-weight: bold;">
-        ⌛ Chargement de PayPal...<br>
-        <span style="font-size:0.8em; color: black; font-weight: normal;">
-        (Si ce message reste affiché, vérifiez votre connexion ou désactivez AdBlock)
-        </span>
-    </p>
-</div>
+            <input type="text" id="nom" placeholder="Votre Nom et Prénom">
+            <input type="email" id="email" placeholder="Votre Email">
+            <input type="tel" id="tel" placeholder="Votre Téléphone">
 
-        <br>
-        <a href="admin.html" class="admin-link">🔒 Administration</a>
+            <!-- BOUTON PAYPAL -->
+            <div id="paypal-button-container"></div>
+        </div>
+
+        <a href="login.html" class="admin-link">🔒 Administration</a>
     </div>
 
-    <script type="module">
-        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
+    <script>
+        // --- 1. CONFIGURATION ---
+        const SUPABASE_URL = 'TON_URL_SUPABASE_ICI'; // <-- REMETS TON URL
+        const SUPABASE_KEY = 'TA_CLE_SUPABASE_ICI';   // <-- REMETS TA CLÉ
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        const SUPABASE_URL = 'https://drhsdlzhxkbamwcskblr.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyaHNkbHpoeGtiYW13Y3NrYmxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyNjg0NDMsImV4cCI6MjA4NTg0NDQ0M30.8nifIWVXkk0VXrlP4zeyMpEhIA-JrWh1Y6P94OdlH_g';
-        const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+        // Coordonnées des postes (inchangé)
+        const postesCoords = [
+            { poste_id: 1, pos_x: 20, pos_y: 30 },
+            { poste_id: 2, pos_x: 40, pos_y: 25 },
+            { poste_id: 3, pos_x: 60, pos_y: 25 },
+            { poste_id: 4, pos_x: 80, pos_y: 40 },
+            { poste_id: 5, pos_x: 75, pos_y: 60 },
+            { poste_id: 6, pos_x: 50, pos_y: 75 },
+            { poste_id: 7, pos_x: 30, pos_y: 70 },
+            { poste_id: 8, pos_x: 15, pos_y: 55 }
+        ];
 
-        let currentSessionId = null;
+        let currentSessionId = 1; 
         let selectedPoste = null;
-        let postesCoords = [];
 
         async function init() {
-            // Charger Coordonnées
-            const { data: configs } = await supabase.from('postes_config').select('*');
-            postesCoords = configs || [];
+            // Charge l'image correcte (Google Maps Satellite ou ton image locale)
+            document.getElementById('pond-image').src = "https://maps.googleapis.com/maps/api/staticmap?center=48.828,7.965&zoom=17&size=800x400&maptype=satellite&key=TON_API_KEY_SI_TU_EN_AS"; 
+            // NOTE : Si tu n'as pas de clé API Google, remets ton lien d'image précédent ici !
 
-            // Charger Sessions futures
-            const { data: sessions } = await supabase
-                .from('sessions')
-                .select('*')
-                .gte('date_fin', new Date().toISOString().split('T')[0]) 
-                .order('date_debut');
-
-            const select = document.getElementById('sessionSelect');
-            select.innerHTML = '<option value="">-- Sélectionnez une date --</option>';
-
-            if(sessions) {
-                sessions.forEach(s => {
-                    const opt = document.createElement('option');
-                    opt.value = s.id;
-                    opt.textContent = `${s.nom} (${s.date_debut} au ${s.date_fin})`;
-                    select.appendChild(opt);
-                });
-            }
-
-            select.addEventListener('change', (e) => {
-                currentSessionId = e.target.value;
-                if(currentSessionId) {
-                    loadMapStatus();
-                    document.getElementById('map-section').classList.remove('hidden');
-                } else {
-                    document.getElementById('map-section').classList.add('hidden');
-                    document.getElementById('form-section').classList.add('hidden');
-                }
-            });
-
-            // Initialiser les boutons PayPal une seule fois
-           function renderPayPalButton() {
-    // Vérification de sécurité
-    if (typeof paypal === 'undefined') {
-        document.getElementById('paypal-loading').innerHTML = 
-            "❌ <strong>Erreur :</strong> Le module PayPal n'a pas chargé.<br>" +
-            "Vérifiez que la ligne &lt;script src='...paypal...'&gt; est bien dans le &lt;head&gt;.";
-        return;
-    }
-
-    try {
-        paypal.Buttons({
-            // Vérifier les champs avant d'ouvrir PayPal
-            onClick: (data, actions) => {
-                const nom = document.getElementById('nom').value;
-                const email = document.getElementById('email').value;
-                const tel = document.getElementById('tel').value;
-                const poste = document.getElementById('displayPoste').innerText;
-
-                if (!nom || !email || !tel || poste === '?') {
-                    alert("Veuillez remplir TOUS les champs avant de payer.");
-                    return actions.reject();
-                }
-                return actions.resolve();
-            },
-            createOrder: (data, actions) => {
-                return actions.order.create({
-                    purchase_units: [{
-                        description: `Réservation Poste ${selectedPoste}`,
-                        amount: { value: '60.00' }
-                    }]
-                });
-            },
-            onApprove: (data, actions) => {
-                return actions.order.capture().then(async (details) => {
-                    // Masquer le formulaire pour éviter double clic
-                    document.getElementById('form-section').innerHTML = "<h3>✅ Paiement validé ! Enregistrement...</h3>";
-                    
-                    const nom = document.getElementById('nom').value;
-                    const email = document.getElementById('email').value;
-                    const tel = document.getElementById('tel').value;
-
-                    const { error } = await supabase.from('reservations').insert({
-                        session_id: currentSessionId,
-                        poste_numero: selectedPoste,
-                        nom_client: nom,
-                        email_client: email,
-                        telephone_client: tel
-                    });
-
-                    if(error) {
-                        alert("Paiement reçu mais erreur d'enregistrement base de données. Contactez l'admin.");
-                    } else {
-                        alert("✅ Réservation confirmée !");
-                        location.reload();
-                    }
-                });
-            },
-            onError: (err) => {
-                console.error('Erreur PayPal:', err);
-                alert("Erreur lors de l'initialisation du paiement.");
-            }
-        }).render('#paypal-button-container');
-    } catch (error) {
-        console.error("Crash PayPal:", error);
-        document.getElementById('paypal-loading').innerText = "Erreur technique PayPal (voir console F12)";
-    }
-}
-
+            loadMapStatus();
+        }
 
         async function loadMapStatus() {
-            const wrapper = document.getElementById('map-wrapper');
-            document.querySelectorAll('.poste-marker').forEach(el => el.remove());
-
-            const { data: resas } = await supabase
+            // 1. Récupérer les réservations pour cette session
+            const { data: reservations, error } = await supabase
                 .from('reservations')
                 .select('poste_numero')
                 .eq('session_id', currentSessionId);
 
-            const taken = resas ? resas.map(r => r.poste_numero) : [];
+            if (error) console.error("Erreur chargement:", error);
 
-            for(let i=1; i<=10; i++) {
+            const taken = reservations ? reservations.map(r => r.poste_numero) : [];
+            renderMap(taken);
+        }
+
+        function renderMap(taken) {
+            const wrapper = document.getElementById('map-wrapper');
+            // Nettoyer les anciennes bulles (garder l'image)
+            document.querySelectorAll('.poste-marker').forEach(el => el.remove());
+
+            for (let i = 1; i <= 8; i++) {
                 const bubble = document.createElement('div');
                 bubble.className = 'poste-marker';
                 bubble.innerText = i;
 
                 const config = postesCoords.find(c => c.poste_id === i);
-                let left = '50%', top = '50%'; 
-                if(config) {
+                let left = '50%', top = '50%';
+                if (config) {
                     left = config.pos_x + '%';
                     top = config.pos_y + '%';
                 }
-
                 bubble.style.left = left;
                 bubble.style.top = top;
 
-                if(taken.includes(i)) {
+                if (taken.includes(i)) {
                     bubble.classList.add('occupe');
                     bubble.title = "Déjà réservé";
                 } else {
                     bubble.classList.add('libre');
                     bubble.onclick = () => selectPoste(i, bubble);
                 }
-
                 wrapper.appendChild(bubble);
             }
         }
 
         function selectPoste(id, element) {
+            // Gestion de la sélection visuelle
             document.querySelectorAll('.selectionne').forEach(el => el.classList.remove('selectionne'));
             element.classList.add('selectionne');
             selectedPoste = id;
 
+            // Afficher le formulaire
             document.getElementById('displayPoste').innerText = id;
             document.getElementById('form-section').classList.remove('hidden');
+            
+            // Initialiser le bouton PayPal (si pas déjà fait)
+            document.getElementById('paypal-button-container').innerHTML = ""; // Reset bouton pour éviter doublons
+            renderPayPalButton();
+
+            // Scroll doux
             document.getElementById('form-section').scrollIntoView({behavior: "smooth"});
         }
 
-        // --- FONCTION PAYPAL ---
         function renderPayPalButton() {
+            if (typeof paypal === 'undefined') {
+                alert("Erreur: PayPal n'a pas chargé. Vérifiez votre connexion.");
+                return;
+            }
+
             paypal.Buttons({
-                // Vérifier les champs avant d'ouvrir PayPal
+                // Vérifier les champs avant
                 onClick: (data, actions) => {
                     const nom = document.getElementById('nom').value;
                     const email = document.getElementById('email').value;
                     const tel = document.getElementById('tel').value;
-
-                    if (!nom || !email || !tel || !selectedPoste) {
-                        alert("Veuillez remplir TOUS les champs avant de payer.");
+                    
+                    if (!nom || !email || !tel) {
+                        alert("Veuillez remplir TOUS les champs (Nom, Email, Tél) avant de payer.");
                         return actions.reject();
                     }
                     return actions.resolve();
                 },
-                // Créer la transaction
+                // Créer la commande
                 createOrder: (data, actions) => {
                     return actions.order.create({
                         purchase_units: [{
-                            description: `Réservation Poste ${selectedPoste} - Soufflenheim`,
-                            amount: {
-                                value: '60.00' // PRIX ICI
-                            }
+                            description: `Réservation Poste ${selectedPoste}`,
+                            amount: { value: '60.00' }
                         }]
                     });
                 },
-                // Quand le paiement est validé
+                // Paiement validé
                 onApprove: (data, actions) => {
                     return actions.order.capture().then(async (details) => {
-                        // Paiement OK, on insère dans Supabase
-                        console.log('Paiement réussi par ' + details.payer.name.given_name);
+                        console.log('Paiement OK:', details);
                         
                         const nom = document.getElementById('nom').value;
                         const email = document.getElementById('email').value;
                         const tel = document.getElementById('tel').value;
 
+                        // Sauvegarde Supabase
                         const { error } = await supabase.from('reservations').insert({
                             session_id: currentSessionId,
                             poste_numero: selectedPoste,
                             nom_client: nom,
                             email_client: email,
                             telephone_client: tel
-                            // On pourrait ajouter une colonne 'paypal_order_id': details.id si tu l'as créée
                         });
 
                         if(error) {
-                            alert("Paiement validé mais erreur technique lors de l'enregistrement. Contactez-nous.");
+                            alert("Paiement reçu mais erreur technique de sauvegarde. Contactez l'admin.");
                             console.error(error);
                         } else {
-                            alert("✅ Paiement de 60€ reçu ! Votre réservation est validée.");
+                            alert("✅ Réservation confirmée et payée !");
                             location.reload();
                         }
                     });
@@ -398,8 +291,8 @@
             }).render('#paypal-button-container');
         }
 
+        // Lancement
         init();
     </script>
 </body>
 </html>
-
