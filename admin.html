@@ -4,250 +4,152 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin - Section Carpe Soufflenheim</title>
+    
     <!-- Supabase SDK -->
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     
     <style>
-        :root { --primary: #2563eb; --danger: #ef4444; --success: #22c55e; --bg: #f3f4f6; }
+        :root { --primary: #2563eb; --danger: #ef4444; --bg: #f3f4f6; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; }
         
         /* Login */
         #loginOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1e293b; display: flex; align-items: center; justify-content: center; z-index: 1000; }
         .login-box { background: white; padding: 2rem; border-radius: 12px; text-align: center; width: 300px; }
-        .login-box input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 6px; }
+        .login-box input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
         .login-box button { width: 100%; padding: 10px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; }
 
         /* Dashboard */
-        .container { max-width: 1000px; margin: 0 auto; display: none; } /* Caché par défaut */
-        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
-        h1 { color: #1e293b; }
-        .btn-logout { background: #64748b; color: white; padding: 8px 16px; text-decoration: none; border-radius: 6px; }
-
-        /* Cartes */
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        h2 { border-bottom: 2px solid var(--bg); padding-bottom: 10px; margin-top: 0; color: #334155; }
-
-        /* Tables */
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        #dashboard { display: none; max-width: 800px; margin: 0 auto; }
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h2 { margin-top: 0; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        
+        input, select { padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; margin-right: 10px; }
+        button { padding: 8px 15px; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { opacity: 0.9; }
+        
+        /* Table */
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         th, td { text-align: left; padding: 12px; border-bottom: 1px solid #e2e8f0; }
-        th { background: #f8fafc; font-weight: 600; color: #475569; }
-        .badge { padding: 4px 8px; border-radius: 4px; font-size: 0.85em; font-weight: bold; }
-        .badge-admin { background: #e0f2fe; color: #0369a1; }
-        .badge-client { background: #dcfce7; color: #15803d; }
-
-        /* Formulaires */
-        .date-input { padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; }
-        .btn-save { background: var(--success); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px; }
-        .btn-delete { background: var(--danger); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
-        .btn-block { background: #f59e0b; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
-
-        .session-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding: 10px; background: #f8fafc; border-radius: 6px; }
+        th { background: #f8fafc; }
+        .btn-del { background: var(--danger); font-size: 0.8rem; padding: 5px 10px; }
     </style>
 </head>
 <body>
 
-    <!-- LOGIN -->
+    <!-- Écran de connexion -->
     <div id="loginOverlay">
         <div class="login-box">
-            <h2>🔐 Administration</h2>
-            <input type="password" id="password" placeholder="Mot de passe">
+            <h3>Administration</h3>
+            <input type="password" id="adminPass" placeholder="Mot de passe">
             <button onclick="checkLogin()">Entrer</button>
-            <p id="errorMsg" style="color: red; display: none; margin-top: 10px;">Mot de passe incorrect</p>
         </div>
     </div>
 
-    <!-- PANEL ADMIN -->
-    <div class="container" id="adminPanel">
-        <header>
-            <h1>⚙️ Gestion Carpe Soufflenheim</h1>
-            <div>
-                <a href="index.html" target="_blank" style="margin-right: 15px;">Voir le site</a>
-                <a href="#" onclick="logout()" class="btn-logout">Déconnexion</a>
-            </div>
-        </header>
-
-        <!-- GESTION DES SESSIONS -->
+    <!-- Tableau de bord -->
+    <div id="dashboard">
         <div class="card">
-            <h2>📅 Dates des Sessions</h2>
-            <div id="sessionsList">Chargement...</div>
+            <h2>📅 Créer une Session</h2>
+            <input type="text" id="sessionName" placeholder="Ex: Week-end Pâques">
+            <input type="date" id="dateStart">
+            <input type="date" id="dateEnd">
+            <button onclick="creerSession()">Ajouter</button>
         </div>
 
-        <!-- BLOQUER UN POSTE -->
         <div class="card">
-            <h2>🔒 Bloquer un poste manuellement</h2>
-            <div style="display: flex; gap: 10px;">
-                <select id="sessionSelect" style="padding: 8px; border-radius: 4px;">
-                    <!-- Rempli par JS -->
-                </select>
-                <select id="posteSelect" style="padding: 8px; border-radius: 4px;">
-                    <option value="1">Poste 1</option>
-                    <option value="2">Poste 2</option>
-                    <option value="3">Poste 3</option>
-                    <option value="4">Poste 4</option>
-                    <option value="5">Poste 5</option>
-                    <option value="6">Poste 6</option>
-                    <option value="7">Poste 7</option>
-                    <option value="8">Poste 8</option>
-                    <option value="9">Poste 9</option>
-                    <option value="10">Poste 10</option>
-                </select>
-                <button class="btn-block" onclick="bloquerPoste()">Bloquer ce poste</button>
-            </div>
+            <h2>🔒 Bloquer un poste (Manuel)</h2>
+            <select id="sessionSelect"></select>
+            <select id="posteSelect">
+                <option value="1">Poste 1</option><option value="2">Poste 2</option>
+                <option value="3">Poste 3</option><option value="4">Poste 4</option>
+                <option value="5">Poste 5</option><option value="6">Poste 6</option>
+                <option value="7">Poste 7</option><option value="8">Poste 8</option>
+                <option value="9">Poste 9</option><option value="10">Poste 10</option>
+            </select>
+            <button onclick="bloquerPoste()">Bloquer</button>
         </div>
 
-        <!-- LISTE DES RÉSERVATIONS -->
         <div class="card">
-            <h2>📋 Liste des Réservations</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Session</th>
-                        <th>Poste</th>
-                        <th>Client</th>
-                        <th>Contact</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="reservationsTable">
-                    <!-- Rempli par JS -->
-                </tbody>
+            <h2>📋 Réservations</h2>
+            <button onclick="loadReservations()">🔄 Actualiser</button>
+            <table id="resaTable">
+                <thead><tr><th>Session</th><th>Poste</th><th>Client</th><th>Action</th></tr></thead>
+                <tbody></tbody>
             </table>
         </div>
     </div>
 
     <script>
-        // ⚠️ REMPLACE TES CLES ICI AUSSI
-        const SUPABASE_URL = https://drhsdlzhxkbamwcskblr.supabase.co;
-        const SUPABASE_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyaHNkbHpoeGtiYW13Y3NrYmxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyNjg0NDMsImV4cCI6MjA4NTg0NDQ0M30.8nifIWVXkk0VXrlP4zeyMpEhIA-JrWh1Y6P94OdlH_g;
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        // ✅ TES CLÉS SUPABASE
+        const SUPABASE_URL = 'https://drhsdlzhxkbamwcskblr.supabase.co'; 
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyaHNkbHpoeGtiYW13Y3NrYmxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyNjg0NDMsImV4cCI6MjA4NTg0NDQ0M30.8nifIWVXkk0VXrlP4zeyMpEhIA-JrWh1Y6P94OdlH_g';
 
-        // Mot de passe admin (Simple)
-        const ADMIN_PASS = "Souffcarpe1664"; 
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // --- AUTH ---
         function checkLogin() {
-            const pass = document.getElementById('password').value;
-            if (pass === ADMIN_PASS) {
-                document.getElementById('loginOverlay').style.display = 'none';
-                document.getElementById('adminPanel').style.display = 'block';
-                loadData();
+            const pass = document.getElementById('adminPass').value;
+            if(pass === "Souffcarpe1664") {
+                document.getElementById('loginOverlay').style.display = "none";
+                document.getElementById('dashboard').style.display = "block";
+                loadSessions();
+                loadReservations();
             } else {
-                document.getElementById('errorMsg').style.display = 'block';
+                alert("Mot de passe incorrect");
             }
         }
 
-        function logout() {
-            location.reload();
-        }
+        async function creerSession() {
+            const nom = document.getElementById('sessionName').value;
+            const d1 = document.getElementById('dateStart').value;
+            const d2 = document.getElementById('dateEnd').value;
 
-        // --- CHARGEMENT DES DONNEES ---
-        let allSessions = [];
+            if(!nom || !d1 || !d2) return alert("Remplissez tout !");
 
-        async function loadData() {
-            // 1. Charger Sessions
-            const { data: sessions, error: errS } = await supabase
-                .from('sessions')
-                .select('*')
-                .order('id');
-            
-            allSessions = sessions;
-            renderSessions(sessions);
-            renderBlockSelect(sessions);
+            const { error } = await supabase.from('sessions').insert({
+                nom: nom, date_debut: d1, date_fin: d2
+            });
 
-            // 2. Charger Réservations
-            loadReservations();
+            if(error) alert("Erreur: " + error.message);
+            else { alert("Session créée !"); loadSessions(); }
         }
 
         async function loadReservations() {
-            const { data: resas, error } = await supabase
+            // Récupère réservations + infos session liée
+            const { data, error } = await supabase
                 .from('reservations')
                 .select('*, sessions(nom)')
-                .order('created_at', { ascending: false });
+                .order('id', { ascending: false });
 
-            const tbody = document.getElementById('reservationsTable');
+            const tbody = document.querySelector('#resaTable tbody');
             tbody.innerHTML = '';
 
-            if(resas) {
-                resas.forEach(r => {
-                    const isManual = r.paypal_order_id === 'MANUAL';
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>#${r.id}</td>
-                        <td>${r.sessions?.nom || 'Inconnu'}</td>
-                        <td><strong>Poste ${r.poste_numero}</strong></td>
-                        <td>
-                            ${r.nom_client} 
-                            ${isManual ? '<span class="badge badge-admin">Admin</span>' : '<span class="badge badge-client">PayPal</span>'}
-                        </td>
-                        <td>${r.email_client}<br><small>${r.telephone_client || ''}</small></td>
-                        <td>
-                            <button class="btn-delete" onclick="supprimerResa(${r.id})">Supprimer</button>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
+            if(data) {
+                data.forEach(r => {
+                    const row = `<tr>
+                        <td>${r.sessions ? r.sessions.nom : 'Inconnu'}</td>
+                        <td>Poste ${r.poste_numero}</td>
+                        <td>${r.nom_client}<br><small>${r.email_client}</small></td>
+                        <td><button class="btn-del" onclick="supprimerResa(${r.id})">X</button></td>
+                    </tr>`;
+                    tbody.innerHTML += row;
                 });
             }
         }
 
-        // --- FONCTIONS ADMIN ---
-
-        // 1. Afficher et Modifier Sessions
-        function renderSessions(sessions) {
-            const container = document.getElementById('sessionsList');
-            container.innerHTML = '';
-            
-            sessions.forEach(s => {
-                const div = document.createElement('div');
-                div.className = 'session-row';
-                div.innerHTML = `
-                    <strong style="width: 150px;">${s.nom}</strong>
-                    <input type="date" id="start-${s.id}" value="${s.date_debut}" class="date-input">
-                    <span>au</span>
-                    <input type="date" id="end-${s.id}" value="${s.date_fin}" class="date-input">
-                    <button class="btn-save" onclick="updateDates(${s.id})">Enregistrer</button>
-                `;
-                container.appendChild(div);
-            });
-        }
-
-        async function updateDates(id) {
-            const start = document.getElementById(`start-${id}`).value;
-            const end = document.getElementById(`end-${id}`).value;
-
-            const { error } = await supabase
-                .from('sessions')
-                .update({ date_debut: start, date_fin: end })
-                .eq('id', id);
-
-            if (!error) alert('✅ Dates mises à jour !');
-            else alert('❌ Erreur update');
-        }
-
-        // 2. Supprimer Réservation
         async function supprimerResa(id) {
-            if(confirm("Êtes-vous sûr de vouloir supprimer cette réservation ? Cela libérera le poste.")) {
-                const { error } = await supabase
-                    .from('reservations')
-                    .delete()
-                    .eq('id', id);
-                
-                if(!error) {
-                    loadReservations(); // Recharger le tableau
-                } else {
-                    alert("Erreur lors de la suppression");
-                }
+            if(confirm("Supprimer cette réservation ?")) {
+                await supabase.from('reservations').delete().eq('id', id);
+                loadReservations();
             }
         }
 
-        // 3. Bloquer manuellement (liste déroulante)
-        function renderBlockSelect(sessions) {
+        async function loadSessions() {
+            const { data } = await supabase.from('sessions').select('*').order('date_debut');
             const select = document.getElementById('sessionSelect');
             select.innerHTML = '';
-            sessions.forEach(s => {
+            data.forEach(s => {
                 const opt = document.createElement('option');
                 opt.value = s.id;
-                opt.text = s.nom;
+                opt.innerText = s.nom;
                 select.appendChild(opt);
             });
         }
@@ -256,35 +158,22 @@
             const sessionId = document.getElementById('sessionSelect').value;
             const posteId = document.getElementById('posteSelect').value;
 
-            // Vérifier si déjà pris
-            const { data: existing } = await supabase
-                .from('reservations')
-                .select('*')
-                .eq('session_id', sessionId)
-                .eq('poste_numero', posteId);
-
-            if(existing && existing.length > 0) {
-                alert("❌ Ce poste est déjà réservé pour cette session !");
-                return;
-            }
-
             const { error } = await supabase.from('reservations').insert({
                 session_id: sessionId,
                 poste_numero: posteId,
-                nom_client: "BLOQUÉ ADMIN",
+                nom_client: "⛔ BLOQUÉ ADMIN",
                 email_client: "admin@local",
                 telephone_client: "-",
-                paypal_order_id: "MANUAL"
+                paypal_order_id: "MANUEL"
             });
 
             if(!error) {
-                alert(`✅ Poste ${posteId} bloqué avec succès.`);
+                alert(`Poste ${posteId} bloqué.`);
                 loadReservations();
             } else {
-                alert("Erreur lors du blocage");
+                alert("Erreur (Poste sans doute déjà pris)");
             }
         }
     </script>
 </body>
 </html>
-
