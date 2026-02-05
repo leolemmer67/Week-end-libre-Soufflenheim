@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Positionner les Postes</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 20px; background: #333; color: white; }
+        
+        #map-container {
+            position: relative;
+            display: inline-block;
+            border: 2px solid white;
+            max-width: 100%;
+        }
+
+        /* L'image de l'étang */
+        #pond-img {
+            display: block;
+            max-width: 1000px; /* Taille de travail */
+            width: 100%;
+            height: auto;
+        }
+
+        /* Les boutons à déplacer */
+        .draggable-poste {
+            position: absolute;
+            width: 30px; height: 30px;
+            background: #22c55e;
+            color: white;
+            border: 2px solid white;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold;
+            cursor: move;
+            user-select: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+            z-index: 100;
+        }
+
+        .draggable-poste:active { background: #ef4444; transform: scale(1.2); }
+
+        #controls { margin-bottom: 20px; position: sticky; top: 0; background: #333; z-index: 200; padding: 10px;}
+        button.save-btn { padding: 10px 20px; font-size: 1.2rem; background: #3b82f6; color: white; border: none; cursor: pointer; border-radius: 5px; }
+        button.save-btn:hover { background: #2563eb; }
+        a { color: #aaa; text-decoration: none; margin-right: 20px; }
+    </style>
+</head>
+<body>
+
+    <div id="controls">
+        <a href="admin.html">← Retour Admin</a>
+        <span>Déplacez les ronds sur la carte, puis cliquez sur : </span>
+        <button class="save-btn" onclick="sauvegarderPositions()">💾 SAUVEGARDER</button>
+    </div>
+
+    <div id="map-container">
+        <!-- Assure-toi que l'image s'appelle bien pond.jpg -->
+        <img src="pond.jpg" id="pond-img" alt="Plan Etang">
+        <!-- Les postes seront générés ici -->
+    </div>
+
+    <script type="module">
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
+
+        const SUPABASE_URL = 'https://drhsdlrxhkbamwcskblr.supabase.co'
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyaHNkbHJ4aGtiYW13Y3NrYmxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg1ODcyMjYsImV4cCI6MjA1NDE2MzIyNn0.S5v0-u1VvLGe_3iS-bTbQrnT9p0k9ZkwG-iS_Wiw7pQ'
+        const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
+
+        const container = document.getElementById('map-container');
+
+        // 1. Charger les positions actuelles
+        async function loadPositions() {
+            const { data, error } = await supabase.from('post_positions').select('*');
+            
+            if(data) {
+                data.forEach(pos => {
+                    createDraggablePoste(pos.poste_numero, pos.top_pos, pos.left_pos);
+                });
+            } else {
+                // Si vide, créer 10 par défaut
+                for(let i=1; i<=10; i++) createDraggablePoste(i, '10%', '10%');
+            }
+        }
+
+        // 2. Créer un bouton déplaçable
+        function createDraggablePoste(num, top, left) {
+            const el = document.createElement('div');
+            el.className = 'draggable-poste';
+            el.textContent = num;
+            el.dataset.num = num;
+            el.style.top = top;
+            el.style.left = left;
+            
+            // Logique de Drag & Drop (Souris + Tactile)
+            addDragFunctionality(el);
+            
+            container.appendChild(el);
+        }
+
+        // 3. Logique de déplacement
+        function addDragFunctionality(elmnt) {
+            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+            elmnt.onmousedown = dragMouseDown;
+
+            function dragMouseDown(e) {
+                e = e || window.event;
+                e.preventDefault();
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                document.onmouseup = closeDragElement;
+                document.onmousemove = elementDrag;
+            }
+
+            function elementDrag(e) {
+                e = e || window.event;
+                e.preventDefault();
+                // Calculer le déplacement
+                pos1 = pos3 - e.clientX;
+                pos2 = pos4 - e.clientY;
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                
+                // Appliquer nouvelle position en pixels temporairement
+                elmnt.style.top = (elmnt.offsetTop - pos2) + "px";
+                elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
+            }
+
+            function closeDragElement() {
+                // Arrêt du déplacement
+                document.onmouseup = null;
+                document.onmousemove = null;
+            }
+        }
+
+        // 4. Sauvegarder dans Supabase (Convertir px en %)
+        window.sauvegarderPositions = async function() {
+            const img = document.getElementById('pond-img');
+            const w = img.clientWidth;
+            const h = img.clientHeight;
+            
+            const updates = [];
+            const postes = document.querySelectorAll('.draggable-poste');
+
+            postes.forEach(p => {
+                // Conversion en pourcentage pour être responsive
+                let topPct = (p.offsetTop / h) * 100;
+                let leftPct = (p.offsetLeft / w) * 100;
+
+                updates.push({
+                    poste_numero: p.dataset.num,
+                    top_pos: topPct.toFixed(2) + '%',
+                    left_pos: leftPct.toFixed(2) + '%'
+                });
+            });
+
+            // Sauvegarde en base (Upsert)
+            const { error } = await supabase.from('post_positions').upsert(updates, { onConflict: 'poste_numero' });
+
+            if(!error) alert("✅ Positions sauvegardées ! Les visiteurs verront ce plan.");
+            else alert("❌ Erreur sauvegarde: " + error.message);
+        }
+
+        loadPositions();
+    </script>
+</body>
+</html>
