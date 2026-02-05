@@ -3,75 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Positionnement des Postes</title>
     
-    <!-- 🛑 C'EST CETTE LIGNE QUI CORRIGE L'ERREUR "FAILED TO FETCH" -->
-    <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;">
+    <!-- 1. On charge Supabase de façon classique -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
-    <title>Positionnement des Postes (Admin)</title>
     <style>
-        body { font-family: sans-serif; text-align: center; background: #222; color: white; margin: 0; padding: 20px; }
-        
-        h1 { margin-bottom: 10px; }
-        p { color: #aaa; margin-bottom: 20px; }
-
-        /* Conteneur de l'image */
-        #map-container {
-            position: relative;
-            display: inline-block;
-            border: 2px solid #555;
-            cursor: crosshair;
-        }
-
-        #pond-image {
-            display: block;
-            max-width: 1000px;
-            width: 100%;
-            height: auto;
-            pointer-events: none; /* Empêche de glisser l'image elle-même */
-        }
-
-        /* Les bulles des postes */
+        body { font-family: sans-serif; text-align: center; background: #222; color: white; padding: 20px; }
+        #map-container { position: relative; display: inline-block; border: 2px solid #555; }
+        #pond-image { display: block; max-width: 1000px; width: 100%; height: auto; pointer-events: none; }
         .draggable {
-            position: absolute;
-            width: 30px; height: 30px;
-            background: #22c55e;
-            color: white;
-            border: 2px solid white;
-            border-radius: 50%;
-            font-weight: bold;
+            position: absolute; width: 30px; height: 30px; background: #22c55e;
+            color: white; border: 2px solid white; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            cursor: grab;
-            user-select: none;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            z-index: 10;
+            cursor: grab; font-weight: bold; user-select: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.5);
         }
-        .draggable:active { cursor: grabbing; background: #16a34a; transform: scale(1.1); }
-
-        .btn-save {
-            margin-top: 20px;
-            padding: 15px 30px;
-            font-size: 18px;
-            background: #0ea5e9;
-            color: white;
-            border: none;
-            cursor: pointer;
-            border-radius: 5px;
-        }
-        .btn-save:hover { background: #0284c7; }
-        
-        .back-link { display: block; margin-top: 20px; color: #888; text-decoration: none; }
+        .btn-save { margin-top: 20px; padding: 15px 30px; background: #0ea5e9; color: white; border: none; cursor: pointer; font-size: 18px; border-radius: 5px; }
     </style>
 </head>
 <body>
 
-    <h1>📍 Mode Édition : Place tes postes</h1>
-    <p>Glisse les numéros au bon endroit sur la carte, puis clique sur "SAUVEGARDER".</p>
-
+    <h1>📍 Positionnement des Postes</h1>
     <div id="map-container">
-        <!-- L'image de l'étang -->
         <img src="pond.jpg" id="pond-image" alt="Plan Étang">
         
-        <!-- Les Postes (positions par défaut 0,0 au début) -->
+        <!-- Postes -->
         <div class="draggable" id="p1" data-id="1" style="top:10%; left:10%">1</div>
         <div class="draggable" id="p2" data-id="2" style="top:10%; left:15%">2</div>
         <div class="draggable" id="p3" data-id="3" style="top:10%; left:20%">3</div>
@@ -85,23 +42,19 @@
     </div>
 
     <br>
-    <button class="btn-save" onclick="sauvegarder()">💾 SAUVEGARDER LES POSITIONS</button>
-    
-    <a href="admin.html" class="back-link">← Retour Admin</a>
+    <button class="btn-save" onclick="sauvegarder()">💾 SAUVEGARDER</button>
+    <br><br>
+    <a href="admin.html" style="color: #aaa;">Retour Admin</a>
 
-    <!-- SCRIPT -->
-    <script type="module">
-        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
+    <script>
+        // 2. Initialisation Supabase (Version classique)
+        const supabaseUrl = 'https://drhsdlrxhkbamwcskblr.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyaHNkbHJ4aGtiYW13Y3NrYmxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg1ODcyMjYsImV4cCI6MjA1NDE2MzIyNn0.S5v0-u1VvLGe_3iS-bTbQrnT9p0k9ZkwG-iS_Wiw7pQ';
+        const client = supabase.createClient(supabaseUrl, supabaseKey);
 
-        // Tes identifiants Supabase
-        const SUPABASE_URL = 'https://drhsdlrxhkbamwcskblr.supabase.co'
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyaHNkbHJ4aGtiYW13Y3NrYmxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg1ODcyMjYsImV4cCI6MjA1NDE2MzIyNn0.S5v0-u1VvLGe_3iS-bTbQrnT9p0k9ZkwG-iS_Wiw7pQ'
-        const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
-
-        // Gestion du Drag & Drop
+        // --- Logique Drag & Drop (Version Mobile & PC) ---
         let activeItem = null;
-        let activeX = 0;
-        let activeY = 0;
+        let activeX = 0, activeY = 0;
         const container = document.getElementById('map-container');
 
         document.querySelectorAll('.draggable').forEach(item => {
@@ -111,17 +64,12 @@
 
         function dragStart(e) {
             activeItem = e.target;
-            
-            // Calculer l'offset pour attraper l'élément par le milieu/endroit cliqué
             const rect = activeItem.getBoundingClientRect();
+            const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+            const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
             
-            if (e.type === 'touchstart') {
-                activeX = e.touches[0].clientX - rect.left;
-                activeY = e.touches[0].clientY - rect.top;
-            } else {
-                activeX = e.clientX - rect.left;
-                activeY = e.clientY - rect.top;
-            }
+            activeX = clientX - rect.left;
+            activeY = clientY - rect.top;
 
             document.addEventListener('mouseup', dragEnd);
             document.addEventListener('mousemove', drag);
@@ -132,23 +80,13 @@
         function drag(e) {
             if (!activeItem) return;
             e.preventDefault();
-
             const containerRect = container.getBoundingClientRect();
-            let clientX, clientY;
+            const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+            const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
 
-            if (e.type === 'touchmove') {
-                clientX = e.touches[0].clientX;
-                clientY = e.touches[0].clientY;
-            } else {
-                clientX = e.clientX;
-                clientY = e.clientY;
-            }
-
-            // Calculer la nouvelle position relative au conteneur
             let x = clientX - containerRect.left - activeX;
             let y = clientY - containerRect.top - activeY;
 
-            // Convertir en pourcentage pour que ça reste responsive
             let xPercent = (x / containerRect.width) * 100;
             let yPercent = (y / containerRect.height) * 100;
 
@@ -164,53 +102,46 @@
             document.removeEventListener('touchmove', drag);
         }
 
-        // Fonction de sauvegarde globale
-        window.sauvegarder = async function() {
+        // --- Sauvegarde ---
+        async function sauvegarder() {
             const updates = [];
-            
             document.querySelectorAll('.draggable').forEach(item => {
-                const id = parseInt(item.getAttribute('data-id'));
-                const top = item.style.top;
-                const left = item.style.left;
-
                 updates.push({
-                    poste_numero: id,
-                    top_pos: top,
-                    left_pos: left
+                    poste_numero: parseInt(item.getAttribute('data-id')),
+                    top_pos: item.style.top,
+                    left_pos: item.style.left
                 });
             });
 
-            console.log("Envoi vers Supabase...", updates);
-
-            // Utilisation de upsert pour mettre à jour ou créer
-            const { data, error } = await supabase
+            console.log("Sauvegarde en cours...");
+            
+            // On utilise .upsert
+            const { error } = await client
                 .from('post_positions')
                 .upsert(updates, { onConflict: 'poste_numero' });
 
             if (error) {
-                console.error("Erreur Supabase:", error);
-                alert("❌ Erreur sauvegarde: " + error.message);
+                alert("Erreur: " + error.message);
+                console.error(error);
             } else {
-                alert("✅ Positions sauvegardées avec succès !");
+                alert("✅ Positions sauvegardées !");
             }
         }
 
-        // Au chargement, récupérer les positions existantes pour ne pas tout refaire
-        async function loadExistingPositions() {
-            const { data } = await supabase.from('post_positions').select('*');
-            if(data) {
+        // --- Chargement ---
+        async function load() {
+            const { data, error } = await client.from('post_positions').select('*');
+            if (data) {
                 data.forEach(pos => {
                     const el = document.getElementById('p' + pos.poste_numero);
-                    if(el) {
+                    if (el) {
                         el.style.top = pos.top_pos;
                         el.style.left = pos.left_pos;
                     }
                 });
             }
         }
-
-        loadExistingPositions();
-
+        load();
     </script>
 </body>
 </html>
