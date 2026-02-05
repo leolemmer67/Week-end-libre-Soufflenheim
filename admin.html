@@ -3,65 +3,80 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Étang de la Carpe</title>
     
-    <!-- CSP TRÈS PERMISSIVE pour éviter les blocages -->
-    <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src * 'unsafe-inline'; img-src * data: blob: 'unsafe-inline'; frame-src *;">
+    <!-- Autorise la connexion à Supabase -->
+    <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval'; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src * 'unsafe-inline'; img-src * data: blob: 'unsafe-inline';">
 
-    <title>Administration - Étang</title>
-    
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <style>
-        body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: auto; background-color: #f4f4f9; }
+        body { font-family: sans-serif; padding: 20px; max-width: 900px; margin: auto; background: #f0f2f5; }
         
+        /* Login */
         #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #222; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; color: white; }
         #admin-panel { display: none; }
 
-        h1, h2 { text-align: center; color: #333; }
-        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        input, select, button { padding: 10px; margin: 5px; border-radius: 5px; border: 1px solid #ddd; }
-        button { background-color: #2563eb; color: white; cursor: pointer; border: none; font-weight: bold; }
-        button:hover { background-color: #1d4ed8; }
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h2 { margin-top: 0; color: #333; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        
+        input, select, button { padding: 10px; margin: 5px 0; width: 100%; box-sizing: border-box; }
+        button { cursor: pointer; font-weight: bold; border: none; border-radius: 5px; }
+        
+        .btn-add { background-color: #2563eb; color: white; }
+        .btn-block { background-color: #d97706; color: white; }
+        .btn-del { background-color: #dc2626; color: white; width: auto; }
+        
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { padding: 10px; border-bottom: 1px solid #ddd; text-align: left; }
-        .btn-danger { background-color: #dc2626; padding: 5px 10px; }
-        
-        .status-bar { padding: 10px; margin-bottom: 15px; border-radius: 5px; text-align: center; font-weight: bold; display: none;}
-        .status-ok { background-color: #d1fae5; color: #065f46; border: 1px solid #34d399; }
-        .status-err { background-color: #fee2e2; color: #991b1b; border: 1px solid #f87171; }
+        tr:hover { background-color: #f9f9f9; }
+
+        .row { display: flex; gap: 10px; }
+        .row input, .row select { flex: 1; }
     </style>
 </head>
 <body>
 
-    <!-- LOGIN -->
+    <!-- 1. ÉCRAN DE CONNEXION -->
     <div id="login-screen">
-        <h2>🔒 Accès Administrateur</h2>
-        <input type="password" id="password" placeholder="Mot de passe">
-        <button onclick="checkLogin()">Entrer</button>
+        <h2>🔒 Administration</h2>
+        <input type="password" id="password" placeholder="Mot de passe" style="width: 200px; text-align: center;">
+        <button onclick="checkLogin()" style="width: 200px; margin-top: 10px;">Entrer</button>
     </div>
 
-    <!-- PANNEAU ADMIN -->
+    <!-- 2. PANNEAU ADMIN -->
     <div id="admin-panel">
-        <h1>Panneau de contrôle</h1>
-
-        <div id="connection-status" class="status-bar"></div>
-
-        <!-- 1. Créer Session -->
+        <h1>Panneau de Contrôle</h1>
+        
+        <!-- Bloc 1 : Créer Session -->
         <div class="card">
-            <h2>🗓️ Créer une Session</h2>
-            <div style="display:flex; flex-wrap:wrap; gap:10px;">
-                <input type="text" id="session-nom" placeholder="Nom (ex: Session juin)" style="flex:1;">
-                <input type="date" id="session-debut">
-                <input type="date" id="session-fin">
-                <button onclick="creerSession()">Ajouter</button>
+            <h2>🗓️ 1. Créer une Session</h2>
+            <div class="row">
+                <input type="text" id="sess-nom" placeholder="Nom (ex: Mars 2024)">
+                <input type="date" id="sess-debut">
+                <input type="date" id="sess-fin">
             </div>
+            <button class="btn-add" onclick="creerSession()">Ajouter la Session</button>
         </div>
 
-        <!-- 2. Réservations -->
+        <!-- Bloc 2 : Bloquer un Poste -->
+        <div class="card">
+            <h2>🚫 2. Bloquer un Poste (Maintenance/Admin)</h2>
+            <p style="font-size:0.9em; color:#666;">Sélectionnez une session existante et le numéro du poste à bloquer.</p>
+            <div class="row">
+                <select id="block-session-select">
+                    <option value="">Chargement des sessions...</option>
+                </select>
+                <input type="number" id="block-poste" placeholder="N° Poste (1-24)" min="1" max="24">
+            </div>
+            <button class="btn-block" onclick="bloquerPoste()">Bloquer ce poste</button>
+        </div>
+
+        <!-- Bloc 3 : Liste des Réservations -->
         <div class="card">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h2>📋 Réservations</h2>
-                <button onclick="loadReservations()" style="background:#10b981;">Actualiser</button>
+                <h2>📋 3. Liste des Réservations</h2>
+                <button onclick="loadReservations()" style="width:auto; background:#10b981; color:white;">Actualiser</button>
             </div>
             <table>
                 <thead>
@@ -73,104 +88,139 @@
                     </tr>
                 </thead>
                 <tbody id="resa-list">
-                    <tr><td colspan="4">Chargement...</td></tr>
+                    <!-- Rempli par JS -->
                 </tbody>
             </table>
         </div>
     </div>
 
     <script>
-        // 👇 ICI C'EST LA CORRECTION IMPORTANTE 👇
-        // J'ai ajouté 'https://' au début et '.supabase.co' à la fin
-        const supabaseUrl = 'https://drhsdlrxhkbamwcskblr.supabase.co'; 
-        
-        // Ta clé (reste la même)
+        // --- CONFIGURATION CORRIGÉE ---
+        // C'est ici que c'était cassé avant (il manquait https:// et .supabase.co)
+        const supabaseUrl = 'https://drhsdlrxhkbamwcskblr.supabase.co';
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyaHNkbHJ4aGtiYW13Y3NrYmxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg3NTU2NzQsImV4cCI6MjA1NDMzMTY3NH0.U8-WkIET9M_T6wlO1w6rqWvXGv7HXm1s8nF0sM4jW14';
         
         const client = supabase.createClient(supabaseUrl, supabaseKey);
 
+        // --- CONNEXION ---
         function checkLogin() {
             const pass = document.getElementById('password').value;
-            // Mot de passe remis à 1234 pour tester facilement
-            if (pass === '1234') { 
+            // J'ai remis ton mot de passe d'origine
+            if (pass === 'Souffcarpe1664') { 
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('admin-panel').style.display = 'block';
-                loadReservations(); // On charge les données dès la connexion
+                initData(); // Charge les données
             } else {
                 alert("Mot de passe incorrect");
             }
         }
 
-        function setStatus(msg, isSuccess) {
-            const el = document.getElementById('connection-status');
-            el.style.display = 'block';
-            el.textContent = msg;
-            el.className = 'status-bar ' + (isSuccess ? 'status-ok' : 'status-err');
+        async function initData() {
+            loadReservations();
+            loadSessionsForSelect();
         }
 
-        // 1. Créer Session
+        // --- 1. CRÉER SESSION ---
         async function creerSession() {
-            const nom = document.getElementById('session-nom').value;
-            const debut = document.getElementById('session-debut').value;
-            const fin = document.getElementById('session-fin').value;
+            const nom = document.getElementById('sess-nom').value;
+            const deb = document.getElementById('sess-debut').value;
+            const fin = document.getElementById('sess-fin').value;
 
-            if(!nom || !debut || !fin) return alert("Remplissez tout !");
+            if(!nom || !deb || !fin) return alert("Tout remplir svp");
 
-            const { error } = await client.from('sessions').insert([{ nom: nom, date_debut: debut, date_fin: fin }]);
-
-            if(!error) {
-                alert("Session créée !");
-                loadReservations(); 
-            } else {
-                alert("Erreur: " + error.message);
+            const { error } = await client.from('sessions').insert([{ nom: nom, date_debut: deb, date_fin: fin }]);
+            
+            if(error) alert("Erreur: " + error.message);
+            else {
+                alert("✅ Session créée !");
+                loadSessionsForSelect(); // Met à jour la liste déroulante
             }
         }
 
-        // 2. Charger Réservations
+        // --- 2. BLOQUER POSTE ---
+        // Charge la liste des sessions dans le menu déroulant
+        async function loadSessionsForSelect() {
+            const { data, error } = await client.from('sessions').select('*').order('date_debut');
+            const select = document.getElementById('block-session-select');
+            
+            if(error) return console.error(error);
+            
+            select.innerHTML = '<option value="">-- Choisir une session --</option>';
+            data.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.id;
+                opt.textContent = `${s.nom} (${s.date_debut})`;
+                select.appendChild(opt);
+            });
+        }
+
+        async function bloquerPoste() {
+            const sessionId = document.getElementById('block-session-select').value;
+            const posteId = document.getElementById('block-poste').value;
+
+            if(!sessionId || !posteId) return alert("Choisir une session et un poste");
+
+            // On crée une réservation au nom de "ADMIN"
+            const { error } = await client.from('reservations').insert([
+                { 
+                    session_id: sessionId, 
+                    poste_id: posteId, 
+                    client_nom: '⛔ POSTE BLOQUÉ', 
+                    client_email: 'admin@etang.fr',
+                    client_tel: '0000000000'
+                }
+            ]);
+
+            if(error) alert("Erreur (poste déjà pris ?): " + error.message);
+            else {
+                alert("✅ Poste bloqué.");
+                loadReservations();
+            }
+        }
+
+        // --- 3. LISTE RESERVATIONS ---
         async function loadReservations() {
             const tbody = document.getElementById('resa-list');
-            
-            // On récupère les données
+            tbody.innerHTML = '<tr><td colspan="4">Chargement...</td></tr>';
+
             const { data, error } = await client
                 .from('reservations')
-                .select(`id, poste_id, client_nom, sessions ( nom )`);
+                .select('id, poste_id, client_nom, sessions(nom)')
+                .order('id', { ascending: false });
 
-            if (error) {
-                console.error("Erreur Load:", error);
-                setStatus("❌ Erreur: " + error.message, false);
-                tbody.innerHTML = '<tr><td colspan="4" class="error">Erreur de chargement</td></tr>';
-                return;
+            if(error) {
+                tbody.innerHTML = '<tr><td colspan="4" style="color:red">Erreur connexion</td></tr>';
+                return alert(error.message);
             }
 
-            setStatus("✅ Connecté à Supabase", true);
-
             tbody.innerHTML = '';
-            if(!data || data.length === 0) {
+            if(data.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="4">Aucune réservation</td></tr>';
                 return;
             }
 
-            data.forEach(resa => {
+            data.forEach(r => {
                 const tr = document.createElement('tr');
-                const sessionNom = resa.sessions ? resa.sessions.nom : 'Inconnue';
+                // Gestion du cas où la session a été supprimée mais pas la résa
+                const sessionNom = r.sessions ? r.sessions.nom : 'Session supprimée';
                 
                 tr.innerHTML = `
                     <td>${sessionNom}</td>
-                    <td>Poste ${resa.poste_id}</td>
-                    <td>${resa.client_nom}</td>
-                    <td><button class="btn-danger" onclick="supprimerResa(${resa.id})">X</button></td>
+                    <td><strong>${r.poste_id}</strong></td>
+                    <td>${r.client_nom}</td>
+                    <td><button class="btn-del" onclick="supprimer(${r.id})">X</button></td>
                 `;
                 tbody.appendChild(tr);
             });
         }
 
-        async function supprimerResa(id) {
-            if(!confirm("Supprimer cette réservation ?")) return;
-            const { error } = await client.from('reservations').delete().eq('id', id);
-            if(!error) loadReservations();
-            else alert("Erreur suppression: " + error.message);
+        async function supprimer(id) {
+            if(confirm("Supprimer cette réservation / blocage ?")) {
+                const { error } = await client.from('reservations').delete().eq('id', id);
+                if(!error) loadReservations();
+                else alert(error.message);
+            }
         }
-
     </script>
 </body>
 </html>
