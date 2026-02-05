@@ -54,6 +54,19 @@
         button:hover { background-color: #14532d; }
         
         .hidden { display: none; }
+
+        /* Lien Admin discret en bas */
+        .admin-link {
+            display: inline-block;
+            margin-top: 30px;
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 0.9em;
+            border: 1px solid #e2e8f0;
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+        .admin-link:hover { background: #f1f5f9; color: #475569; }
     </style>
 </head>
 <body>
@@ -88,6 +101,10 @@
             <input type="tel" id="tel" placeholder="Téléphone">
             <button id="btnReserver">Valider la Réservation</button>
         </div>
+
+        <!-- LIEN VERS L'ADMIN -->
+        <br>
+        <a href="admin.html" class="admin-link">🔒 Administration</a>
     </div>
 
     <script type="module">
