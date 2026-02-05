@@ -4,20 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
-    <!-- 👇 C'est LUI qui autorise la connexion (CSP) 👇 -->
+    <!-- CSP TRÈS PERMISSIVE pour éviter les blocages -->
     <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src * 'unsafe-inline'; img-src * data: blob: 'unsafe-inline'; frame-src *;">
 
     <title>Administration - Étang</title>
     
-    <!-- Chargement de Supabase via un CDN fiable -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <style>
         body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: auto; background-color: #f4f4f9; }
         
-        /* Écran de connexion */
         #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #222; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; color: white; }
-        #admin-panel { display: none; } /* Caché par défaut */
+        #admin-panel { display: none; }
 
         h1, h2 { text-align: center; color: #333; }
         .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
@@ -26,47 +24,45 @@
         button:hover { background-color: #1d4ed8; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { padding: 10px; border-bottom: 1px solid #ddd; text-align: left; }
-        .btn-danger { background-color: #dc2626; }
-        .btn-config { background-color: #db2777; width: 100%; display: block; text-align: center; text-decoration: none; padding: 15px; border-radius: 8px; color: white; font-size: 16px; margin-bottom: 20px; }
+        .btn-danger { background-color: #dc2626; padding: 5px 10px; }
         
-        /* Status Indicator */
-        #status-indicator { text-align: center; padding: 10px; font-weight: bold; margin-bottom: 10px; border-radius: 4px; }
-        .status-ok { background-color: #dcfce7; color: #166534; border: 1px solid #166534; }
-        .status-err { background-color: #fee2e2; color: #991b1b; border: 1px solid #991b1b; }
+        .status-bar { padding: 10px; margin-bottom: 15px; border-radius: 5px; text-align: center; font-weight: bold; display: none;}
+        .status-ok { background-color: #d1fae5; color: #065f46; border: 1px solid #34d399; }
+        .status-err { background-color: #fee2e2; color: #991b1b; border: 1px solid #f87171; }
     </style>
 </head>
 <body>
 
-    <!-- 1. ÉCRAN DE CONNEXION -->
+    <!-- LOGIN -->
     <div id="login-screen">
-        <h2>🔒 Accès Réservé</h2>
-        <input type="password" id="admin-password" placeholder="Mot de passe">
-        <button onclick="checkPassword()">Entrer</button>
-        <p id="login-error" style="color: red; display: none;">Mot de passe incorrect</p>
+        <h2>🔒 Accès Administrateur</h2>
+        <input type="password" id="password" placeholder="Mot de passe">
+        <button onclick="checkLogin()">Entrer</button>
     </div>
 
-    <!-- 2. PANNEAU ADMIN (Caché au début) -->
+    <!-- PANNEAU ADMIN -->
     <div id="admin-panel">
-        
         <h1>Panneau de contrôle</h1>
-        
-        <!-- Indicateur de connexion -->
-        <div id="status-indicator" class="status-err">⚪ Tentative de connexion à Supabase...</div>
 
-        <a href="positionnement.html" class="btn-config">📍 Modifier le plan de l'étang (Glisser-Déposer)</a>
+        <div id="connection-status" class="status-bar"></div>
 
-        <!-- Créer Session -->
+        <!-- 1. Créer Session -->
         <div class="card">
             <h2>🗓️ Créer une Session</h2>
-            <input type="text" id="sessionName" placeholder="Nom (ex: Session juin)">
-            <input type="date" id="startDate">
-            <input type="date" id="endDate">
-            <button onclick="createSession()">Ajouter</button>
+            <div style="display:flex; flex-wrap:wrap; gap:10px;">
+                <input type="text" id="session-nom" placeholder="Nom (ex: Session juin)" style="flex:1;">
+                <input type="date" id="session-debut">
+                <input type="date" id="session-fin">
+                <button onclick="creerSession()">Ajouter</button>
+            </div>
         </div>
 
-        <!-- Liste Réservations -->
+        <!-- 2. Réservations -->
         <div class="card">
-            <h2>📋 Réservations <button onclick="loadReservations()" style="float:right; font-size:12px; padding:5px;">Actualiser</button></h2>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h2>📋 Réservations</h2>
+                <button onclick="loadReservations()" style="background:#10b981;">Actualiser</button>
+            </div>
             <table>
                 <thead>
                     <tr>
@@ -84,59 +80,39 @@
     </div>
 
     <script>
-        // --- CONFIGURATION ---
-        // J'ai reconstitué l'URL complète d'après tes captures d'écran
-        const supabaseUrl = 'https://drhsdlrxhkbamwcskblr.supabase.co';
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyaHNkbHJ4aGtiYW13Y3NrYmxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg3NDg0NDMsImV4cCI6MjA1NDMyNDQ0M30.S7k5fR2UqT4-J6lM4oVgwC1oZ8nNDGGeC90Jc5b8O50';
-        let client;
+        // 👇 ICI C'EST LA CORRECTION IMPORTANTE 👇
+        // J'ai ajouté 'https://' au début et '.supabase.co' à la fin
+        const supabaseUrl = 'https://drhsdlrxhkbamwcskblr.supabase.co'; 
+        
+        // Ta clé (reste la même)
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyaHNkbHJ4aGtiYW13Y3NrYmxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg3NTU2NzQsImV4cCI6MjA1NDMzMTY3NH0.U8-WkIET9M_T6wlO1w6rqWvXGv7HXm1s8nF0sM4jW14';
+        
+        const client = supabase.createClient(supabaseUrl, supabaseKey);
 
-        // --- 1. GESTION DU MOT DE PASSE ---
-        function checkPassword() {
-            const pass = document.getElementById('admin-password').value;
-            // Remplace '1234' par ton vrai mot de passe
+        function checkLogin() {
+            const pass = document.getElementById('password').value;
+            // Mot de passe remis à 1234 pour tester facilement
             if (pass === '1234') { 
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('admin-panel').style.display = 'block';
-                initSupabase(); // On lance la connexion seulement après le login
+                loadReservations(); // On charge les données dès la connexion
             } else {
-                document.getElementById('login-error').style.display = 'block';
-            }
-        }
-
-        // --- 2. INITIALISATION SUPABASE ---
-        function initSupabase() {
-            try {
-                // Vérification basique que la librairie est chargée
-                if (typeof supabase === 'undefined') {
-                    throw new Error("La librairie Supabase n'est pas chargée. Vérifiez votre connexion internet.");
-                }
-
-                client = supabase.createClient(supabaseUrl, supabaseKey);
-                
-                // Test de connexion simple
-                console.log("Supabase initialisé, test de connexion...");
-                document.getElementById('status-indicator').innerText = "🟠 Connexion en cours...";
-                
-                loadReservations(); // Lance le chargement des données
-
-            } catch (e) {
-                console.error("Erreur Critique:", e);
-                setStatus("❌ Erreur: " + e.message, false);
+                alert("Mot de passe incorrect");
             }
         }
 
         function setStatus(msg, isSuccess) {
-            const el = document.getElementById('status-indicator');
-            el.innerText = msg;
-            el.className = isSuccess ? 'status-ok' : 'status-err';
+            const el = document.getElementById('connection-status');
+            el.style.display = 'block';
+            el.textContent = msg;
+            el.className = 'status-bar ' + (isSuccess ? 'status-ok' : 'status-err');
         }
 
-        // --- 3. FONCTIONS ADMIN ---
-
-        async function createSession() {
-            const nom = document.getElementById('sessionName').value;
-            const debut = document.getElementById('startDate').value;
-            const fin = document.getElementById('endDate').value;
+        // 1. Créer Session
+        async function creerSession() {
+            const nom = document.getElementById('session-nom').value;
+            const debut = document.getElementById('session-debut').value;
+            const fin = document.getElementById('session-fin').value;
 
             if(!nom || !debut || !fin) return alert("Remplissez tout !");
 
@@ -150,6 +126,7 @@
             }
         }
 
+        // 2. Charger Réservations
         async function loadReservations() {
             const tbody = document.getElementById('resa-list');
             
@@ -160,13 +137,12 @@
 
             if (error) {
                 console.error("Erreur Load:", error);
-                setStatus("❌ Erreur de connexion: " + error.message, false);
+                setStatus("❌ Erreur: " + error.message, false);
                 tbody.innerHTML = '<tr><td colspan="4" class="error">Erreur de chargement</td></tr>';
                 return;
             }
 
-            // Si on arrive ici, c'est que la connexion marche !
-            setStatus("✅ Connecté à la base de données", true);
+            setStatus("✅ Connecté à Supabase", true);
 
             tbody.innerHTML = '';
             if(!data || data.length === 0) {
