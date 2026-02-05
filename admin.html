@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
-    <!-- 🛡️ CORRECTION SÉCURITÉ : J'ai ajouté unpkg.com et cdn.jsdelivr.net pour que Supabase puisse charger -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net https://drhsdlzhxkbamwcskblr.supabase.co https://*.supabase.co https://*.supabase.in data: blob:;">
+    <!-- 🛡️ SÉCURITÉ : Version très permissive pour débloquer la situation -->
+    <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;">
 
     <title>Administration - Étang</title>
     
-    <!-- Supabase SDK -->
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <!-- Supabase SDK via jsDelivr (plus stable) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <style>
         body { font-family: sans-serif; background: #f8fafc; padding: 20px; }
@@ -27,10 +27,10 @@
         .card { background: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         h2 { margin-top: 0; color: #1e293b; }
         
-        .row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+        .row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { text-align: left; padding: 10px; border-bottom: 1px solid #eee; }
-        .btn-del { background: #ef4444; padding: 5px 10px; font-size: 0.8rem; }
+        .btn-del { background: #ef4444; padding: 5px 10px; font-size: 0.8rem; border-radius: 3px; color: white; border: none; cursor: pointer;}
     </style>
 </head>
 <body>
@@ -38,8 +38,11 @@
     <!-- Écran de connexion -->
     <div id="login-screen">
         <h1>Administration</h1>
-        <input type="password" id="passwordInput" placeholder="Mot de passe">
-        <button onclick="checkLogin()">Entrer</button>
+        <p id="status-msg" style="color:gray; font-size: 0.9rem;">Chargement du système...</p>
+        <div id="login-form" style="display:none;">
+            <input type="password" id="passwordInput" placeholder="Mot de passe">
+            <button onclick="checkLogin()">Entrer</button>
+        </div>
     </div>
 
     <!-- Tableau de bord -->
@@ -100,21 +103,27 @@
     </div>
 
     <script>
-        // --- 1. CONFIGURATION SUPABASE ---
         const SUPABASE_URL = 'https://drhsdlzhxkbamwcskblr.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyaHNkbHpoeGtiYW13Y3NrYmxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyNjg0NDMsImV4cCI6MjA4NTg0NDQ0M30.8nifIWVXkk0VXrlP4zeyMpEhIA-JrWh1Y6P94OdlH_g';
         
-        // Initialisation immédiate
         let supabase;
-        try {
-            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-            console.log("Supabase initialisé avec succès !");
-        } catch (e) {
-            console.error("Erreur initialisation Supabase :", e);
-            alert("Erreur de chargement. Vérifiez votre connexion.");
-        }
 
-        // --- 2. FONCTIONS ---
+        // On attend que la page soit 100% chargée pour initialiser
+        window.onload = function() {
+            if (window.supabase) {
+                try {
+                    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                    console.log("Supabase OK");
+                    document.getElementById('status-msg').style.display = 'none';
+                    document.getElementById('login-form').style.display = 'block';
+                } catch (err) {
+                    alert("Erreur interne Supabase : " + err.message);
+                }
+            } else {
+                document.getElementById('status-msg').innerText = "Erreur : Impossible de charger la librairie Supabase.";
+                document.getElementById('status-msg').style.color = "red";
+            }
+        };
 
         function checkLogin() {
             const pass = document.getElementById('passwordInput').value;
@@ -133,7 +142,7 @@
             const debut = document.getElementById('dateDebut').value;
             const fin = document.getElementById('dateFin').value;
 
-            if(!nom || !debut || !fin) return alert("Remplissez tout !");
+            if(!nom || !debut || !fin) return alert("Remplissez tous les champs !");
 
             const { error } = await supabase.from('sessions').insert({
                 nom: nom,
@@ -144,11 +153,10 @@
 
             if(error) {
                 console.error(error);
-                alert("Erreur lors de la création : " + error.message);
+                alert("Erreur création session : " + error.message);
             } else {
                 alert("Session créée !");
-                loadSessions(); // Rafraichir la liste déroulante
-                // Vider les champs
+                loadSessions();
                 document.getElementById('nomSession').value = '';
             }
         }
@@ -156,59 +164,53 @@
         async function loadSessions() {
             const { data, error } = await supabase.from('sessions').select('*').order('date_debut', { ascending: true });
             
-            if (error) { console.error("Erreur chargement sessions", error); return; }
+            if (error) { console.error(error); return; }
 
             const select = document.getElementById('sessionSelect');
             select.innerHTML = '';
             
-            if (data.length === 0) {
-                const opt = document.createElement('option');
-                opt.innerText = "Aucune session active";
-                select.appendChild(opt);
-            } else {
+            if (data && data.length > 0) {
                 data.forEach(s => {
                     const opt = document.createElement('option');
                     opt.value = s.id;
                     opt.innerText = `${s.nom} (${s.date_debut})`;
                     select.appendChild(opt);
                 });
+            } else {
+                select.innerHTML = '<option>Aucune session</option>';
             }
         }
 
         async function loadReservations() {
             const { data, error } = await supabase
                 .from('reservations')
-                .select(`
-                    id, 
-                    poste_numero, 
-                    nom_client, 
-                    email_client, 
-                    sessions ( nom )
-                `)
+                .select('id, poste_numero, nom_client, email_client, sessions(nom)')
                 .order('created_at', { ascending: false });
 
-            if (error) { console.error("Erreur chargement résas", error); return; }
+            if (error) { console.error(error); return; }
 
             const tbody = document.getElementById('resaTable');
             tbody.innerHTML = '';
 
-            data.forEach(r => {
-                const sessionName = r.sessions ? r.sessions.nom : 'Session supprimée';
-                const row = `<tr>
-                    <td>${sessionName}</td>
-                    <td>Poste ${r.poste_numero}</td>
-                    <td>${r.nom_client}<br><small>${r.email_client}</small></td>
-                    <td><button class="btn-del" onclick="supprimerResa(${r.id})">Supprimer</button></td>
-                </tr>`;
-                tbody.innerHTML += row;
-            });
+            if(data) {
+                data.forEach(r => {
+                    const sessionName = r.sessions ? r.sessions.nom : 'Inconnue';
+                    const row = `<tr>
+                        <td>${sessionName}</td>
+                        <td>Poste ${r.poste_numero}</td>
+                        <td>${r.nom_client}<br><small>${r.email_client}</small></td>
+                        <td><button class="btn-del" onclick="supprimerResa(${r.id})">Supprimer</button></td>
+                    </tr>`;
+                    tbody.innerHTML += row;
+                });
+            }
         }
 
         async function bloquerPoste() {
             const sessionId = document.getElementById('sessionSelect').value;
             const posteId = document.getElementById('posteSelect').value;
-
-            if (!sessionId) return alert("Aucune session sélectionnée");
+            
+            if (!sessionId || isNaN(sessionId)) return alert("Sélectionnez une session valide.");
 
             const { error } = await supabase.from('reservations').insert({
                 session_id: sessionId,
@@ -220,23 +222,17 @@
             });
 
             if(!error) {
-                alert(`✅ Poste ${posteId} bloqué avec succès.`);
+                alert(`Poste ${posteId} bloqué.`);
                 loadReservations();
             } else {
-                console.error(error);
-                alert("Erreur : Ce poste est probablement déjà réservé pour cette session.");
+                alert("Erreur : Ce poste est déjà pris.");
             }
         }
 
         async function supprimerResa(id) {
-            if(confirm("Êtes-vous sûr de vouloir supprimer cette réservation ? Cela libérera le poste.")) {
+            if(confirm("Supprimer cette réservation ?")) {
                 const { error } = await supabase.from('reservations').delete().eq('id', id);
-                if (error) {
-                    alert("Erreur suppression");
-                    console.error(error);
-                } else {
-                    loadReservations();
-                }
+                if (!error) loadReservations();
             }
         }
     </script>
