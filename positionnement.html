@@ -3,14 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    
-    <!-- 👇 CETTE LIGNE AUTORISE LE CHARGEMENT DE SUPABASE ET UNPKG 👇 -->
-    <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src * 'unsafe-inline'; img-src * data: blob: 'unsafe-inline'; frame-src *;">
-
     <title>Positionnement des Postes</title>
     
-    <!-- Importation de Supabase -->
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <!-- 👇 ON UTILISE JSDELIVR CAR C'EST LE SEUL AUTORISÉ PAR TON SYSTÈME 👇 -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <style>
         body { font-family: sans-serif; text-align: center; background: #222; color: white; padding: 20px; margin: 0; }
@@ -52,6 +48,7 @@
             color: white; border: none; font-size: 20px; border-radius: 8px; cursor: pointer;
         }
         .btn-save:hover { background: #0284c7; }
+        
         a { color: #aaa; text-decoration: none; display: inline-block; margin-top: 20px;}
     </style>
 </head>
@@ -61,7 +58,7 @@
     <p>Glisse les bulles sur l'image et clique sur Sauvegarder.</p>
 
     <div id="map-container">
-        <!-- Vérifie bien que le nom de ton image est correct ici -->
+        <!-- Assure-toi que ton image s'appelle bien pond.jpg ou modifie ici -->
         <img src="pond.jpg" id="pond-image" alt="Plan Étang">
         
         <div class="draggable" id="p1" data-id="1" style="top:10%; left:10%">1</div>
@@ -82,21 +79,29 @@
     <a href="admin.html">← Retour Admin</a>
 
     <script>
-        // On initialise Supabase
+        // --- 1. CONFIGURATION SUPABASE ---
         const supabaseUrl = 'https://drhsdlrxhkbamwcskblr.supabase.co';
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyaHNkbHJ4aGtiYW13Y3NrYmxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg1ODcyMjYsImV4cCI6MjA1NDE2MzIyNn0.S5v0-u1VvLGe_3iS-bTbQrnT9p0k9ZkwG-iS_Wiw7pQ';
         
-        // On vérifie que Supabase est bien chargé
         let client;
-        try {
-            client = supabase.createClient(supabaseUrl, supabaseKey);
-            console.log("Supabase chargé avec succès !");
-        } catch (e) {
-            console.error("Erreur critique : Supabase n'a pas pu être chargé.", e);
-            alert("Erreur de chargement des librairies. Vérifiez votre connexion.");
-        }
 
-        // --- DRAG & DROP ---
+        // --- 2. INITIALISATION ROBUSTE ---
+        window.onload = function() {
+            try {
+                if (typeof supabase !== 'undefined') {
+                    client = supabase.createClient(supabaseUrl, supabaseKey);
+                    console.log("Supabase connecté via jsdelivr !");
+                    chargerPositions(); // On charge les positions dès que c'est prêt
+                } else {
+                    throw new Error("Librairie Supabase introuvable.");
+                }
+            } catch (err) {
+                console.error("ERREUR CRITIQUE:", err);
+                alert("Erreur de chargement. Désactivez vos extensions (AdBlock, MetaMask) si le problème persiste.");
+            }
+        };
+
+        // --- 3. GESTION DU DÉPLACEMENT (DRAG & DROP) ---
         let activeItem = null;
         let startX = 0, startY = 0;
         let initialLeft = 0, initialTop = 0;
@@ -108,7 +113,7 @@
         });
 
         function dragStart(e) {
-            e.preventDefault();
+            if (e.type === 'touchstart') e.preventDefault(); // Empêche le scroll sur mobile
             activeItem = e.target;
             
             if(e.type === 'touchstart') {
@@ -143,10 +148,11 @@
 
             const dx = currentX - startX;
             const dy = currentY - startY;
-            const containerRect = container.getBoundingClientRect();
+            const rect = container.getBoundingClientRect();
             
-            let newLeft = ((initialLeft + dx) / containerRect.width) * 100;
-            let newTop = ((initialTop + dy) / containerRect.height) * 100;
+            // Calcul en %
+            let newLeft = ((initialLeft + dx) / rect.width) * 100;
+            let newTop = ((initialTop + dy) / rect.height) * 100;
 
             activeItem.style.left = newLeft + '%';
             activeItem.style.top = newTop + '%';
@@ -160,9 +166,9 @@
             document.removeEventListener('touchmove', dragMove);
         }
 
-        // --- SAUVEGARDE ---
+        // --- 4. SAUVEGARDE ---
         async function sauvegarder() {
-            if (!client) return alert("Impossible de sauvegarder : Supabase non chargé.");
+            if (!client) return alert("Erreur : La base de données n'est pas connectée.");
 
             const updates = [];
             document.querySelectorAll('.draggable').forEach(item => {
@@ -173,7 +179,7 @@
                 });
             });
 
-            console.log("Envoi...", updates);
+            console.log("Envoi des données...", updates);
             const { error } = await client.from('post_positions').upsert(updates, { onConflict: 'poste_numero' });
 
             if (error) {
@@ -184,10 +190,12 @@
             }
         }
 
-        // --- CHARGEMENT ---
-        async function load() {
+        // --- 5. CHARGEMENT ---
+        async function chargerPositions() {
             if (!client) return;
-            const { data } = await client.from('post_positions').select('*');
+            console.log("Chargement des positions...");
+            const { data, error } = await client.from('post_positions').select('*');
+            
             if (data) {
                 data.forEach(pos => {
                     const el = document.getElementById('p' + pos.poste_numero);
@@ -198,7 +206,6 @@
                 });
             }
         }
-        load();
     </script>
 </body>
 </html>
