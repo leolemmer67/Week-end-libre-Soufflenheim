@@ -4,16 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
-    <!-- 👇 1. LE VIGILE SYMPA (Autorise Supabase et JSDelivr) 👇 -->
+    <!-- 👇 C'est LUI qui autorise la connexion (CSP) 👇 -->
     <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src * 'unsafe-inline'; img-src * data: blob: 'unsafe-inline'; frame-src *;">
 
     <title>Administration - Étang</title>
     
-    <!-- 👇 2. LE BON SCRIPT (Celui qui est autorisé) 👇 -->
+    <!-- Chargement de Supabase via un CDN fiable -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <style>
         body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: auto; background-color: #f4f4f9; }
+        
+        /* Écran de connexion */
+        #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #222; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; color: white; }
+        #admin-panel { display: none; } /* Caché par défaut */
+
         h1, h2 { text-align: center; color: #333; }
         .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
         input, select, button { padding: 10px; margin: 5px; border-radius: 5px; border: 1px solid #ddd; }
@@ -21,81 +26,113 @@
         button:hover { background-color: #1d4ed8; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { padding: 10px; border-bottom: 1px solid #ddd; text-align: left; }
-        .error { color: red; font-weight: bold; }
-        .success { color: green; font-weight: bold; }
         .btn-danger { background-color: #dc2626; }
-        .btn-danger:hover { background-color: #b91c1c; }
         .btn-config { background-color: #db2777; width: 100%; display: block; text-align: center; text-decoration: none; padding: 15px; border-radius: 8px; color: white; font-size: 16px; margin-bottom: 20px; }
-        .btn-config:hover { background-color: #be185d; }
+        
+        /* Status Indicator */
+        #status-indicator { text-align: center; padding: 10px; font-weight: bold; margin-bottom: 10px; border-radius: 4px; }
+        .status-ok { background-color: #dcfce7; color: #166534; border: 1px solid #166534; }
+        .status-err { background-color: #fee2e2; color: #991b1b; border: 1px solid #991b1b; }
     </style>
 </head>
 <body>
 
-    <h1>Panneau de contrôle</h1>
-
-    <!-- Bouton vers la config des postes -->
-    <a href="positionnement.html" class="btn-config">📍 Modifier le plan de l'étang (Glisser-Déposer)</a>
-
-    <!-- Créer Session -->
-    <div class="card">
-        <h2>🗓️ Créer une Session</h2>
-        <input type="text" id="sessionName" placeholder="Nom (ex: Session juin)">
-        <input type="date" id="startDate">
-        <input type="date" id="endDate">
-        <button onclick="createSession()">Ajouter</button>
+    <!-- 1. ÉCRAN DE CONNEXION -->
+    <div id="login-screen">
+        <h2>🔒 Accès Réservé</h2>
+        <input type="password" id="admin-password" placeholder="Mot de passe">
+        <button onclick="checkPassword()">Entrer</button>
+        <p id="login-error" style="color: red; display: none;">Mot de passe incorrect</p>
     </div>
 
-    <!-- Bloquer un poste -->
-    <div class="card">
-        <h2>🔒 Bloquer un poste (Manuel)</h2>
-        <select id="posteSelect">
-            <option value="1">Poste 1</option>
-            <option value="2">Poste 2</option>
-            <option value="3">Poste 3</option>
-            <option value="4">Poste 4</option>
-            <option value="5">Poste 5</option>
-            <option value="6">Poste 6</option>
-            <option value="7">Poste 7</option>
-            <option value="8">Poste 8</option>
-            <option value="9">Poste 9</option>
-            <option value="10">Poste 10</option>
-        </select>
-        <button onclick="bloquerPoste()">Bloquer</button>
-    </div>
+    <!-- 2. PANNEAU ADMIN (Caché au début) -->
+    <div id="admin-panel">
+        
+        <h1>Panneau de contrôle</h1>
+        
+        <!-- Indicateur de connexion -->
+        <div id="status-indicator" class="status-err">⚪ Tentative de connexion à Supabase...</div>
 
-    <!-- Liste Réservations -->
-    <div class="card">
-        <h2>📋 Réservations <button onclick="loadReservations()" style="float:right; font-size:12px; padding:5px;">Actualiser</button></h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Session</th>
-                    <th>Poste</th>
-                    <th>Client</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody id="resa-list">
-                <tr><td colspan="4">Chargement...</td></tr>
-            </tbody>
-        </table>
+        <a href="positionnement.html" class="btn-config">📍 Modifier le plan de l'étang (Glisser-Déposer)</a>
+
+        <!-- Créer Session -->
+        <div class="card">
+            <h2>🗓️ Créer une Session</h2>
+            <input type="text" id="sessionName" placeholder="Nom (ex: Session juin)">
+            <input type="date" id="startDate">
+            <input type="date" id="endDate">
+            <button onclick="createSession()">Ajouter</button>
+        </div>
+
+        <!-- Liste Réservations -->
+        <div class="card">
+            <h2>📋 Réservations <button onclick="loadReservations()" style="float:right; font-size:12px; padding:5px;">Actualiser</button></h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Session</th>
+                        <th>Poste</th>
+                        <th>Client</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="resa-list">
+                    <tr><td colspan="4">Chargement...</td></tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <script>
-        // 👇 3. INITIALISATION SUPABASE CORRIGÉE (J'ai mis l'URL complète avec ton ID)
+        // --- CONFIGURATION ---
+        // J'ai reconstitué l'URL complète d'après tes captures d'écran
         const supabaseUrl = 'https://drhsdlrxhkbamwcskblr.supabase.co';
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyaHNkbHJ4aGtiYW13Y3NrYmxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg3NDg0NDMsImV4cCI6MjA1NDMyNDQ0M30.S7k5fR2UqT4-J6lM4oVgwC1oZ8nNDGGeC90Jc5b8O50';
-        
-        // Initialisation
         let client;
-        try {
-            client = supabase.createClient(supabaseUrl, supabaseKey);
-            console.log("Supabase initialisé !");
-        } catch (e) {
-            console.error("Erreur init Supabase:", e);
+
+        // --- 1. GESTION DU MOT DE PASSE ---
+        function checkPassword() {
+            const pass = document.getElementById('admin-password').value;
+            // Remplace '1234' par ton vrai mot de passe
+            if (pass === '1234') { 
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('admin-panel').style.display = 'block';
+                initSupabase(); // On lance la connexion seulement après le login
+            } else {
+                document.getElementById('login-error').style.display = 'block';
+            }
         }
 
-        // 1. Créer Session
+        // --- 2. INITIALISATION SUPABASE ---
+        function initSupabase() {
+            try {
+                // Vérification basique que la librairie est chargée
+                if (typeof supabase === 'undefined') {
+                    throw new Error("La librairie Supabase n'est pas chargée. Vérifiez votre connexion internet.");
+                }
+
+                client = supabase.createClient(supabaseUrl, supabaseKey);
+                
+                // Test de connexion simple
+                console.log("Supabase initialisé, test de connexion...");
+                document.getElementById('status-indicator').innerText = "🟠 Connexion en cours...";
+                
+                loadReservations(); // Lance le chargement des données
+
+            } catch (e) {
+                console.error("Erreur Critique:", e);
+                setStatus("❌ Erreur: " + e.message, false);
+            }
+        }
+
+        function setStatus(msg, isSuccess) {
+            const el = document.getElementById('status-indicator');
+            el.innerText = msg;
+            el.className = isSuccess ? 'status-ok' : 'status-err';
+        }
+
+        // --- 3. FONCTIONS ADMIN ---
+
         async function createSession() {
             const nom = document.getElementById('sessionName').value;
             const debut = document.getElementById('startDate').value;
@@ -103,63 +140,42 @@
 
             if(!nom || !debut || !fin) return alert("Remplissez tout !");
 
-            const { data, error } = await client
-                .from('sessions')
-                .insert([{ nom: nom, date_debut: debut, date_fin: fin }]);
+            const { error } = await client.from('sessions').insert([{ nom: nom, date_debut: debut, date_fin: fin }]);
 
             if(!error) {
                 alert("Session créée !");
-                // On pourrait recharger la liste des sessions ici si on l'affichait
-                loadReservations(); // Juste pour rafraichir au cas où
+                loadReservations(); 
             } else {
-                console.error(error);
-                alert("Erreur création session: " + error.message);
+                alert("Erreur: " + error.message);
             }
         }
 
-        // 2. Bloquer Poste
-        async function bloquerPoste() {
-            // On va chercher la session active (simplification: on prend la dernière créée pour l'exemple, ou on demande de choisir)
-            // Pour faire simple ici : on bloque "hors session" ou on demande à l'utilisateur de sélectionner une session.
-            // Vu le code actuel, simplifions : Bloquer = Créer une réservation "BLOQUÉ" sur la session en cours.
-            
-            // Pour faire simple, on va juste dire : "Cette fonction nécessite de choisir une session".
-            // Mais pour débloquer ton test, on va supposer qu'on réserve pour la PROCHAINE session trouvée.
-            
-            alert("Pour bloquer, assurez-vous qu'une session existe. (Fonctionnalité simplifiée ici)");
-            // Tu pourras améliorer ça plus tard
-        }
-
-        // 3. Charger Réservations
         async function loadReservations() {
             const tbody = document.getElementById('resa-list');
-            tbody.innerHTML = '<tr><td colspan="4">Chargement...</td></tr>';
-
-            // On récupère les réservations ET l'info de la session liée
+            
+            // On récupère les données
             const { data, error } = await client
                 .from('reservations')
-                .select(`
-                    id,
-                    poste_id,
-                    client_nom,
-                    sessions ( nom )
-                `);
+                .select(`id, poste_id, client_nom, sessions ( nom )`);
 
             if (error) {
-                console.error(error);
-                tbody.innerHTML = '<tr><td colspan="4" class="error">Erreur chargement</td></tr>';
+                console.error("Erreur Load:", error);
+                setStatus("❌ Erreur de connexion: " + error.message, false);
+                tbody.innerHTML = '<tr><td colspan="4" class="error">Erreur de chargement</td></tr>';
                 return;
             }
 
+            // Si on arrive ici, c'est que la connexion marche !
+            setStatus("✅ Connecté à la base de données", true);
+
             tbody.innerHTML = '';
-            if(data.length === 0) {
+            if(!data || data.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="4">Aucune réservation</td></tr>';
                 return;
             }
 
             data.forEach(resa => {
                 const tr = document.createElement('tr');
-                // Attention: resa.sessions est un objet ou un tableau selon la relation
                 const sessionNom = resa.sessions ? resa.sessions.nom : 'Inconnue';
                 
                 tr.innerHTML = `
@@ -172,25 +188,12 @@
             });
         }
 
-        // 4. Supprimer Réservation
         async function supprimerResa(id) {
             if(!confirm("Supprimer cette réservation ?")) return;
-
-            const { error } = await client
-                .from('reservations')
-                .delete()
-                .eq('id', id);
-
-            if(!error) {
-                loadReservations();
-            } else {
-                alert("Erreur suppression");
-                console.error(error);
-            }
+            const { error } = await client.from('reservations').delete().eq('id', id);
+            if(!error) loadReservations();
+            else alert("Erreur suppression: " + error.message);
         }
-
-        // Lancer le chargement au démarrage
-        loadReservations();
 
     </script>
 </body>
