@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- 🟢 CETTE LIGNE AUTORISE TOUT (Pour éviter les erreurs rouges) -->
+    <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;">
+
     <title>Administration - Étang</title>
     
     <style>
@@ -24,8 +28,6 @@
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { text-align: left; padding: 10px; border-bottom: 1px solid #eee; }
         .btn-del { background: #ef4444; padding: 5px 10px; font-size: 0.8rem; border-radius: 3px; color: white; border: none; cursor: pointer;}
-        
-        #error-log { color: red; margin-top: 20px; display: none; border: 1px solid red; padding: 10px; background: #fff0f0; }
     </style>
 </head>
 <body>
@@ -33,33 +35,30 @@
     <!-- Écran de connexion -->
     <div id="login-screen">
         <h1>Administration</h1>
-        
-        <!-- Zone de statut -->
-        <p id="status-msg" style="color:blue;">Connexion à Supabase en cours...</p>
+        <p id="status-msg" style="color:blue;">Connexion système...</p>
         
         <div id="login-form" style="display:none;">
             <input type="password" id="passwordInput" placeholder="Mot de passe">
-            <button id="btnLogin">Entrer</button>
+            <button onclick="checkPassword()">Entrer</button>
         </div>
-
-        <div id="error-log"></div>
     </div>
 
     <!-- Tableau de bord -->
     <div id="dashboard" class="container">
-        
-        <!-- Créer Session -->
+        <h1>Panneau de contrôle</h1>
+
+        <!-- 1. Créer Session -->
         <div class="card">
-            <h2>🗓️ Créer une Session</h2>
+            <h2>📅 Créer une Session</h2>
             <div class="row">
-                <input type="text" id="nomSession" placeholder="Nom (ex: Session Juin)">
-                <input type="date" id="dateDebut">
-                <input type="date" id="dateFin">
-                <button id="btnCreerSession">Ajouter</button>
+                <input type="text" id="sessionName" placeholder="Nom (ex: Session juin)">
+                <input type="date" id="sessionStart">
+                <input type="date" id="sessionEnd">
+                <button onclick="createSession()">Ajouter</button>
             </div>
         </div>
 
-        <!-- Bloquer un poste manuellement -->
+        <!-- 2. Bloquer Poste -->
         <div class="card">
             <h2>🔒 Bloquer un poste (Manuel)</h2>
             <div class="row">
@@ -72,21 +71,16 @@
                     <option value="5">Poste 5</option>
                     <option value="6">Poste 6</option>
                     <option value="7">Poste 7</option>
-                    <option value="8">Poste 8</option>
-                    <option value="9">Poste 9</option>
-                    <option value="10">Poste 10</option>
-                    <option value="11">Poste 11</option>
-                    <option value="12">Poste 12</option>
                 </select>
-                <button id="btnBloquer">Bloquer</button>
+                <button id="btnBloquer" style="background:#4f46e5;">Bloquer</button>
             </div>
         </div>
 
-        <!-- Liste des réservations -->
+        <!-- 3. Liste Réservations -->
         <div class="card">
-            <div class="row" style="justify-content: space-between;">
+            <div style="display:flex; justify-content:space-between;">
                 <h2>📋 Réservations</h2>
-                <button id="btnRefresh">🔄 Actualiser</button>
+                <button id="btnRefresh" style="background:#10b981;">Actualiser</button>
             </div>
             <table>
                 <thead>
@@ -97,42 +91,37 @@
                         <th>Action</th>
                     </tr>
                 </thead>
-                <tbody id="resaTable"></tbody>
+                <tbody id="resa-list"></tbody>
             </table>
         </div>
     </div>
 
-    <!-- SCRIPT DE TYPE MODULE (Plus robuste) -->
+    <!-- Script Module (Moderne) -->
     <script type="module">
-        // Importation directe depuis le module ES
         import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
 
-        const SUPABASE_URL = 'https://drhsdlzhxkbamwcskblr.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyaHNkbHpoeGtiYW13Y3NrYmxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyNjg0NDMsImV4cCI6MjA4NTg0NDQ0M30.8nifIWVXkk0VXrlP4zeyMpEhIA-JrWh1Y6P94OdlH_g';
+        // --- CONFIGURATION ---
+        const SUPABASE_URL = 'https://drhsdlrxhkbamwcskblr.supabase.co'
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyaHNkbHJ4aGtiYW13Y3NrYmxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg1ODcyMjYsImV4cCI6MjA1NDE2MzIyNn0.S5v0-u1VvLGe_3iS-bTbQrnT9p0k9ZkwG-iS_Wiw7pQ'
         
-        let supabase;
+        const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
+        const ADMIN_PASS = "Souffcarpe1664"
 
-        try {
-            supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-            console.log("Supabase initialisé avec succès !");
-            
-            // Débloquer l'interface
+        // Rendre les fonctions accessibles globalement
+        window.checkPassword = checkPassword;
+        window.createSession = createSession;
+
+        // Initialisation
+        window.onload = () => {
+            console.log("Supabase initialisé !");
             document.getElementById('status-msg').style.display = 'none';
             document.getElementById('login-form').style.display = 'block';
+        };
 
-        } catch (err) {
-            console.error(err);
-            document.getElementById('status-msg').innerText = "ERREUR CRITIQUE : Impossible de charger Supabase.";
-            document.getElementById('error-log').style.display = 'block';
-            document.getElementById('error-log').innerText = err.message;
-        }
-
-        // --- FONCTIONS (Attachées au DOM via AddEventListener car on est dans un module) ---
-
-        // 1. Login
-        document.getElementById('btnLogin').addEventListener('click', () => {
-            const pass = document.getElementById('passwordInput').value;
-            if(pass === "Souffcarpe1664") {
+        // 1. Login Simple
+        function checkPassword() {
+            const input = document.getElementById('passwordInput').value;
+            if(input === ADMIN_PASS) {
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('dashboard').style.display = 'block';
                 loadSessions();
@@ -140,54 +129,65 @@
             } else {
                 alert("Mot de passe incorrect");
             }
-        });
+        }
 
-        // 2. Créer Session
-        document.getElementById('btnCreerSession').addEventListener('click', async () => {
-            const nom = document.getElementById('nomSession').value;
-            const debut = document.getElementById('dateDebut').value;
-            const fin = document.getElementById('dateFin').value;
-
-            if(!nom || !debut || !fin) return alert("Tout remplir svp");
-
-            const { error } = await supabase.from('sessions').insert({
-                nom: nom, date_debut: debut, date_fin: fin, active: true
-            });
-
-            if(error) alert("Erreur: " + error.message);
-            else {
-                alert("Session créée !");
-                loadSessions();
-            }
-        });
-
-        // 3. Charger Sessions
+        // 2. Charger les sessions (pour le menu déroulant)
         async function loadSessions() {
-            const { data, error } = await supabase.from('sessions').select('*').order('date_debut', { ascending: true });
+            const { data, error } = await supabase.from('sessions').select('*').order('created_at', { ascending: false });
+            if(error) console.error("Erreur sessions:", error);
+            
             const select = document.getElementById('sessionSelect');
             select.innerHTML = '';
-            
             if(data) {
                 data.forEach(s => {
                     const opt = document.createElement('option');
                     opt.value = s.id;
-                    opt.innerText = `${s.nom}`;
+                    opt.textContent = `${s.nom} (${new Date(s.date_debut).toLocaleDateString()})`;
                     select.appendChild(opt);
                 });
             }
         }
 
+        // 3. Créer Session
+        async function createSession() {
+            const nom = document.getElementById('sessionName').value;
+            const debut = document.getElementById('sessionStart').value;
+            const fin = document.getElementById('sessionEnd').value;
+
+            if(!nom || !debut || !fin) return alert("Remplissez tout !");
+
+            const { error } = await supabase.from('sessions').insert({ nom, date_debut: debut, date_fin: fin });
+
+            if(!error) {
+                alert("Session créée !");
+                loadSessions();
+            } else {
+                console.error(error);
+                alert("Erreur création session");
+            }
+        }
+
         // 4. Charger Réservations
         async function loadReservations() {
+            const tbody = document.getElementById('resa-list');
+            tbody.innerHTML = '<tr><td colspan="4">Chargement...</td></tr>';
+
             const { data, error } = await supabase
                 .from('reservations')
-                .select('id, poste_numero, nom_client, email_client, sessions(nom)')
-                .order('created_at', { ascending: false });
+                .select(`
+                    id, 
+                    poste_numero, 
+                    nom_client, 
+                    sessions ( nom )
+                `)
+                .order('id', { ascending: false });
 
-            const tbody = document.getElementById('resaTable');
             tbody.innerHTML = '';
 
-            if(data) {
+            if(error) {
+                console.error(error);
+                tbody.innerHTML = '<tr><td colspan="4" style="color:red">Erreur chargement</td></tr>';
+            } else {
                 data.forEach(r => {
                     const sName = r.sessions ? r.sessions.nom : '??';
                     const tr = document.createElement('tr');
@@ -227,12 +227,12 @@
             });
 
             if(!error) { alert("Poste bloqué !"); loadReservations(); }
-            else alert("Erreur (poste déjà pris ?)");
+            else alert("Erreur (Poste déjà pris ?)");
         });
 
         // 7. Supprimer
         async function supprimerResa(id) {
-            if(confirm("Supprimer ?")) {
+            if(confirm("Supprimer cette réservation ? Le poste sera libéré.")) {
                 await supabase.from('reservations').delete().eq('id', id);
                 loadReservations();
             }
