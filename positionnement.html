@@ -2,69 +2,76 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Configuration Plan</title>
-    <!-- On autorise Supabase et les images -->
-    <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
     <style>
-        body { font-family: sans-serif; text-align: center; background: #1e293b; color: white; padding: 20px; }
+        body { font-family: sans-serif; text-align: center; background: #1e293b; color: white; padding: 20px; margin: 0; }
+        
+        /* Conteneur de la carte */
         #map-container {
-            position: relative; width: 1000px; height: 600px; margin: 20px auto;
-            background-image: url('https://images.unsplash.com/photo-1547623641-82fbb83b169e?q=80&w=1000&auto=format&fit=crop');
-            background-size: cover; border: 4px solid white; border-radius: 8px;
+            position: relative; 
+            width: 1000px; /* Largeur fixe pour le positionnement précis */
+            height: 600px; 
+            margin: 20px auto;
+            background-image: url('https://images.unsplash.com/photo-1547623641-82fbb83b169e?q=80&w=1000&auto=format&fit=crop'); /* Remplace par ton image d'étang */
+            background-size: cover; 
+            border: 4px solid white; 
+            border-radius: 8px;
+            overflow: hidden;
         }
+
         .poste-marker {
-            position: absolute; width: 40px; height: 40px;
+            position: absolute; width: 30px; height: 30px;
             background: #ef4444; color: white; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
             font-weight: bold; border: 2px solid white; cursor: grab;
             box-shadow: 0 4px 6px rgba(0,0,0,0.5); user-select: none;
+            z-index: 10;
         }
-        .btn-save { background: #10b981; color: white; padding: 15px 30px; font-size: 1.2em; border: none; cursor: pointer; border-radius: 5px; }
+        .poste-marker:active { cursor: grabbing; background: #b91c1c; }
+
+        .btn-save { background: #10b981; color: white; padding: 15px 30px; font-size: 1.2em; border: none; cursor: pointer; border-radius: 5px; margin-top: 10px; }
+        .btn-save:hover { background: #059669; }
+        a { color: #cbd5e1; text-decoration: none; margin-left: 15px; }
     </style>
 </head>
 <body>
 
-    <h2>📍 Configurer les Postes</h2>
-    <p>Glisse les bulles et clique sur Sauvegarder.</p>
-    
-    <button class="btn-save" onclick="savePositions()">💾 SAUVEGARDER POSITIONS</button>
-    <a href="admin.html" style="color:white; margin-left:20px;">Retour Admin</a>
+    <h2>📍 Glisse les postes à leur place</h2>
+    <button class="btn-save" id="btnSave">💾 SAUVEGARDER POSITIONS</button>
+    <a href="admin.html">← Retour Admin</a>
 
-    <div id="map-container"></div>
+    <div id="map-container">
+        <!-- Les bulles seront générées ici -->
+    </div>
 
-    <script>
-        // ⚠️ REMPLACE CECI PAR TES INFOS SUPABASE ACTUELLES (Vérifie sur le site Supabase)
-        // Si ton projet était en pause, l'URL a peut-être changé ou doit être réactivée.
-        const supabaseUrl = 'https://drhsdlzhxkbamwcskblr.supabase.co'; 
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyaHNkbHpoeGtiYW13Y3NrYmxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyNjg0NDMsImV4cCI6MjA4NTg0NDQ0M30.8nifIWVXkk0VXrlP4zeyMpEhIA-JrWh1Y6P94OdlH_g';
-        
-        const client = supabase.createClient(supabaseUrl, supabaseKey);
+    <script type="module">
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
+
+        // TES CLÉS EXACTES
+        const SUPABASE_URL = 'https://drhsdlzhxkbamwcskblr.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyaHNkbHpoeGtiYW13Y3NrYmxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyNjg0NDMsImV4cCI6MjA4NTg0NDQ0M30.8nifIWVXkk0VXrlP4zeyMpEhIA-JrWh1Y6P94OdlH_g';
+
+        const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
         const container = document.getElementById('map-container');
 
-        // 1. Charger les postes au démarrage
-        async function init() {
-            // On vérifie d'abord si la table existe et on récupère les infos
-            const { data, error } = await client.from('postes_config').select('*');
-            
-            if (error) {
-                console.error("Erreur Supabase:", error);
-                alert("Erreur de connexion ! Vérifie la console (F12) et tes clés Supabase.");
-            }
+        // Initialisation
+        (async function init() {
+            // 1. Récupérer les positions existantes
+            const { data, error } = await supabase.from('postes_config').select('*');
+            if(error) console.error("Erreur chargement:", error);
 
+            // 2. Créer les 24 bulles
             for(let i=1; i<=24; i++) {
                 const el = document.createElement('div');
                 el.className = 'poste-marker';
                 el.id = 'p-'+i;
                 el.innerText = i;
                 
-                // Position par défaut
-                let top = '50px';
-                let left = (i * 35) + 'px';
+                // Position par défaut (alignées en haut si pas de config)
+                let top = '10%';
+                let left = (i * 3.5) + '%';
 
-                // Si on a une position sauvegardée, on l'utilise
+                // Appliquer la position sauvegardée si elle existe
                 if(data) {
                     const saved = data.find(p => p.poste_id === i);
                     if(saved) {
@@ -79,9 +86,29 @@
                 makeDraggable(el);
                 container.appendChild(el);
             }
-        }
+        })();
 
-        // Fonction pour rendre les bulles déplaçables
+        // Sauvegarde
+        document.getElementById('btnSave').addEventListener('click', async () => {
+            const updates = [];
+            const rect = container.getBoundingClientRect();
+
+            for(let i=1; i<=24; i++) {
+                const el = document.getElementById('p-'+i);
+                
+                // Calcul en pourcentage (pour que ça reste bon sur mobile/tablette)
+                const xPct = (el.offsetLeft / rect.width) * 100;
+                const yPct = (el.offsetTop / rect.height) * 100;
+
+                updates.push({ poste_id: i, pos_x: xPct, pos_y: yPct });
+            }
+
+            const { error } = await supabase.from('postes_config').upsert(updates);
+            if(error) alert("Erreur: " + error.message);
+            else alert("✅ Positions mises à jour !");
+        });
+
+        // Logique de Drag & Drop (Souris)
         function makeDraggable(elmnt) {
             let pos1=0, pos2=0, pos3=0, pos4=0;
             elmnt.onmousedown = dragMouseDown;
@@ -96,10 +123,13 @@
 
             function elementDrag(e) {
                 e.preventDefault();
+                // Calcul nouvelle position
                 pos1 = pos3 - e.clientX;
                 pos2 = pos4 - e.clientY;
                 pos3 = e.clientX;
                 pos4 = e.clientY;
+                
+                // Appliquer (sans sortir du cadre idéalement)
                 elmnt.style.top = (elmnt.offsetTop - pos2) + "px";
                 elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
             }
@@ -109,29 +139,6 @@
                 document.onmousemove = null;
             }
         }
-
-        // 2. Sauvegarder dans la base de données
-        async function savePositions() {
-            const updates = [];
-            const rect = container.getBoundingClientRect();
-
-            for(let i=1; i<=24; i++) {
-                const el = document.getElementById('p-'+i);
-                // On calcule en pourcentage pour que ça marche sur tous les écrans
-                const xPct = (el.offsetLeft / rect.width) * 100;
-                const yPct = (el.offsetTop / rect.height) * 100;
-
-                updates.push({ poste_id: i, pos_x: xPct, pos_y: yPct });
-            }
-
-            const { error } = await client.from('postes_config').upsert(updates);
-            
-            if(error) alert("Erreur sauvegarde : " + error.message);
-            else alert("✅ Positions sauvegardées !");
-        }
-
-        // Lancer le script
-        init();
     </script>
 </body>
 </html>
