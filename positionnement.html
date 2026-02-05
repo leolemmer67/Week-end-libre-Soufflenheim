@@ -3,15 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- 👇 CETTE LIGNE AUTORISE LE CHARGEMENT DE SUPABASE ET UNPKG 👇 -->
+    <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src * 'unsafe-inline'; img-src * data: blob: 'unsafe-inline'; frame-src *;">
+
     <title>Positionnement des Postes</title>
     
-    <!-- Importation simple de Supabase -->
+    <!-- Importation de Supabase -->
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
     <style>
         body { font-family: sans-serif; text-align: center; background: #222; color: white; padding: 20px; margin: 0; }
         
-        /* Conteneur Map */
         #map-container {
             position: relative;
             display: inline-block;
@@ -23,12 +26,10 @@
             display: block;
             max-width: 100%;
             height: auto;
-            /* Empêche de sélectionner l'image sur mobile */
             user-select: none;
             pointer-events: none; 
         }
 
-        /* Les Postes (Bulles) */
         .draggable {
             position: absolute;
             width: 30px; height: 30px;
@@ -40,25 +41,17 @@
             font-weight: bold;
             cursor: grab;
             user-select: none;
-            touch-action: none; /* Crucial pour le drag sur mobile */
+            touch-action: none;
             z-index: 100;
         }
 
         .draggable:active { transform: scale(1.2); cursor: grabbing; background: #facc15; }
 
-        /* Boutons */
         .btn-save {
-            margin-top: 20px;
-            padding: 15px 40px;
-            background: #0ea5e9;
-            color: white;
-            border: none;
-            font-size: 20px;
-            border-radius: 8px;
-            cursor: pointer;
+            margin-top: 20px; padding: 15px 40px; background: #0ea5e9;
+            color: white; border: none; font-size: 20px; border-radius: 8px; cursor: pointer;
         }
         .btn-save:hover { background: #0284c7; }
-
         a { color: #aaa; text-decoration: none; display: inline-block; margin-top: 20px;}
     </style>
 </head>
@@ -68,10 +61,9 @@
     <p>Glisse les bulles sur l'image et clique sur Sauvegarder.</p>
 
     <div id="map-container">
-        <!-- Mets ici le nom exact de ton image (pond.jpg, etang.png...) -->
+        <!-- Vérifie bien que le nom de ton image est correct ici -->
         <img src="pond.jpg" id="pond-image" alt="Plan Étang">
         
-        <!-- Les 10 postes -->
         <div class="draggable" id="p1" data-id="1" style="top:10%; left:10%">1</div>
         <div class="draggable" id="p2" data-id="2" style="top:10%; left:18%">2</div>
         <div class="draggable" id="p3" data-id="3" style="top:10%; left:26%">3</div>
@@ -90,21 +82,28 @@
     <a href="admin.html">← Retour Admin</a>
 
     <script>
-        // CONFIGURATION SUPABASE
+        // On initialise Supabase
         const supabaseUrl = 'https://drhsdlrxhkbamwcskblr.supabase.co';
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyaHNkbHJ4aGtiYW13Y3NrYmxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg1ODcyMjYsImV4cCI6MjA1NDE2MzIyNn0.S5v0-u1VvLGe_3iS-bTbQrnT9p0k9ZkwG-iS_Wiw7pQ';
-        const client = supabase.createClient(supabaseUrl, supabaseKey);
+        
+        // On vérifie que Supabase est bien chargé
+        let client;
+        try {
+            client = supabase.createClient(supabaseUrl, supabaseKey);
+            console.log("Supabase chargé avec succès !");
+        } catch (e) {
+            console.error("Erreur critique : Supabase n'a pas pu être chargé.", e);
+            alert("Erreur de chargement des librairies. Vérifiez votre connexion.");
+        }
 
-        // --- GESTION DU DRAG & DROP (SOURIS + DOIGT) ---
+        // --- DRAG & DROP ---
         let activeItem = null;
         let startX = 0, startY = 0;
         let initialLeft = 0, initialTop = 0;
         const container = document.getElementById('map-container');
 
         document.querySelectorAll('.draggable').forEach(item => {
-            // Souris
             item.addEventListener('mousedown', dragStart);
-            // Tactile
             item.addEventListener('touchstart', dragStart, { passive: false });
         });
 
@@ -112,7 +111,6 @@
             e.preventDefault();
             activeItem = e.target;
             
-            // Position initiale de la souris/doigt
             if(e.type === 'touchstart') {
                 startX = e.touches[0].clientX;
                 startY = e.touches[0].clientY;
@@ -121,11 +119,9 @@
                 startY = e.clientY;
             }
 
-            // Position actuelle de l'élément (en pixels pour le calcul)
             initialLeft = activeItem.offsetLeft;
             initialTop = activeItem.offsetTop;
 
-            // Écouteurs globaux pour suivre le mouvement
             document.addEventListener('mouseup', dragEnd);
             document.addEventListener('mousemove', dragMove);
             document.addEventListener('touchend', dragEnd);
@@ -134,10 +130,9 @@
 
         function dragMove(e) {
             if (!activeItem) return;
-            e.preventDefault(); // Empêche le scroll de la page sur mobile
+            e.preventDefault(); 
 
             let currentX, currentY;
-
             if(e.type === 'touchmove') {
                 currentX = e.touches[0].clientX;
                 currentY = e.touches[0].clientY;
@@ -148,8 +143,6 @@
 
             const dx = currentX - startX;
             const dy = currentY - startY;
-
-            // Calcul en Pourcentage pour que ça reste responsive
             const containerRect = container.getBoundingClientRect();
             
             let newLeft = ((initialLeft + dx) / containerRect.width) * 100;
@@ -167,10 +160,11 @@
             document.removeEventListener('touchmove', dragMove);
         }
 
-        // --- SAUVEGARDE VERS SUPABASE ---
+        // --- SAUVEGARDE ---
         async function sauvegarder() {
+            if (!client) return alert("Impossible de sauvegarder : Supabase non chargé.");
+
             const updates = [];
-            
             document.querySelectorAll('.draggable').forEach(item => {
                 updates.push({
                     poste_numero: parseInt(item.getAttribute('data-id')),
@@ -180,28 +174,20 @@
             });
 
             console.log("Envoi...", updates);
-
-            const { data, error } = await client
-                .from('post_positions')
-                .upsert(updates, { onConflict: 'poste_numero' });
+            const { error } = await client.from('post_positions').upsert(updates, { onConflict: 'poste_numero' });
 
             if (error) {
                 console.error(error);
                 alert("❌ Erreur : " + error.message);
             } else {
-                alert("✅ Positions sauvegardées avec succès !");
+                alert("✅ Positions sauvegardées !");
             }
         }
 
         // --- CHARGEMENT ---
-        async function chargerPositions() {
-            const { data, error } = await client.from('post_positions').select('*');
-            
-            if (error) {
-                console.error("Erreur chargement:", error);
-                return;
-            }
-
+        async function load() {
+            if (!client) return;
+            const { data } = await client.from('post_positions').select('*');
             if (data) {
                 data.forEach(pos => {
                     const el = document.getElementById('p' + pos.poste_numero);
@@ -212,10 +198,7 @@
                 });
             }
         }
-
-        // Lancer le chargement au démarrage
-        chargerPositions();
-
+        load();
     </script>
 </body>
 </html>
