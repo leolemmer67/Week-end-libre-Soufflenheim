@@ -3,93 +3,124 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin - Section Carpe Soufflenheim</title>
+    
+    <!-- 🛡️ CORRECTION SÉCURITÉ : J'ai ajouté unpkg.com et cdn.jsdelivr.net pour que Supabase puisse charger -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net https://drhsdlzhxkbamwcskblr.supabase.co https://*.supabase.co https://*.supabase.in data: blob:;">
+
+    <title>Administration - Étang</title>
     
     <!-- Supabase SDK -->
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-    
+
     <style>
-        :root { --primary: #2563eb; --danger: #ef4444; --bg: #f3f4f6; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; }
+        body { font-family: sans-serif; background: #f8fafc; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
         
         /* Login */
-        #loginOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1e293b; display: flex; align-items: center; justify-content: center; z-index: 1000; }
-        .login-box { background: white; padding: 2rem; border-radius: 12px; text-align: center; width: 300px; }
-        .login-box input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
-        .login-box button { width: 100%; padding: 10px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; }
+        #login-screen { text-align: center; margin-top: 100px; }
+        input { padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 10px 20px; background: #2563eb; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #1d4ed8; }
 
         /* Dashboard */
-        #dashboard { display: none; max-width: 800px; margin: 0 auto; }
-        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        h2 { margin-top: 0; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        #dashboard { display: none; }
+        .card { background: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h2 { margin-top: 0; color: #1e293b; }
         
-        input, select { padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; margin-right: 10px; }
-        button { padding: 8px 15px; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer; }
-        button:hover { opacity: 0.9; }
-        
-        /* Table */
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #e2e8f0; }
-        th { background: #f8fafc; }
-        .btn-del { background: var(--danger); font-size: 0.8rem; padding: 5px 10px; }
+        .row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { text-align: left; padding: 10px; border-bottom: 1px solid #eee; }
+        .btn-del { background: #ef4444; padding: 5px 10px; font-size: 0.8rem; }
     </style>
 </head>
 <body>
 
     <!-- Écran de connexion -->
-    <div id="loginOverlay">
-        <div class="login-box">
-            <h3>Administration</h3>
-            <input type="password" id="adminPass" placeholder="Mot de passe">
-            <button onclick="checkLogin()">Entrer</button>
-        </div>
+    <div id="login-screen">
+        <h1>Administration</h1>
+        <input type="password" id="passwordInput" placeholder="Mot de passe">
+        <button onclick="checkLogin()">Entrer</button>
     </div>
 
     <!-- Tableau de bord -->
-    <div id="dashboard">
+    <div id="dashboard" class="container">
+        
+        <!-- Créer Session -->
         <div class="card">
-            <h2>📅 Créer une Session</h2>
-            <input type="text" id="sessionName" placeholder="Ex: Week-end Pâques">
-            <input type="date" id="dateStart">
-            <input type="date" id="dateEnd">
-            <button onclick="creerSession()">Ajouter</button>
+            <h2>🗓️ Créer une Session</h2>
+            <div class="row">
+                <input type="text" id="nomSession" placeholder="Nom (ex: Session Juin)">
+                <input type="date" id="dateDebut">
+                <input type="date" id="dateFin">
+                <button onclick="creerSession()">Ajouter</button>
+            </div>
         </div>
 
+        <!-- Bloquer un poste manuellement -->
         <div class="card">
             <h2>🔒 Bloquer un poste (Manuel)</h2>
-            <select id="sessionSelect"></select>
-            <select id="posteSelect">
-                <option value="1">Poste 1</option><option value="2">Poste 2</option>
-                <option value="3">Poste 3</option><option value="4">Poste 4</option>
-                <option value="5">Poste 5</option><option value="6">Poste 6</option>
-                <option value="7">Poste 7</option><option value="8">Poste 8</option>
-                <option value="9">Poste 9</option><option value="10">Poste 10</option>
-            </select>
-            <button onclick="bloquerPoste()">Bloquer</button>
+            <div class="row">
+                <select id="sessionSelect"></select>
+                <select id="posteSelect">
+                    <option value="1">Poste 1</option>
+                    <option value="2">Poste 2</option>
+                    <option value="3">Poste 3</option>
+                    <option value="4">Poste 4</option>
+                    <option value="5">Poste 5</option>
+                    <option value="6">Poste 6</option>
+                    <option value="7">Poste 7</option>
+                    <option value="8">Poste 8</option>
+                    <option value="9">Poste 9</option>
+                    <option value="10">Poste 10</option>
+                    <option value="11">Poste 11</option>
+                    <option value="12">Poste 12</option>
+                </select>
+                <button onclick="bloquerPoste()">Bloquer</button>
+            </div>
         </div>
 
+        <!-- Liste des réservations -->
         <div class="card">
-            <h2>📋 Réservations</h2>
-            <button onclick="loadReservations()">🔄 Actualiser</button>
-            <table id="resaTable">
-                <thead><tr><th>Session</th><th>Poste</th><th>Client</th><th>Action</th></tr></thead>
-                <tbody></tbody>
+            <div class="row" style="justify-content: space-between;">
+                <h2>📋 Réservations</h2>
+                <button onclick="loadReservations()">🔄 Actualiser</button>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Session</th>
+                        <th>Poste</th>
+                        <th>Client</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="resaTable"></tbody>
             </table>
         </div>
     </div>
 
     <script>
-        // ✅ TES CLÉS SUPABASE
-        const SUPABASE_URL = 'https://drhsdlzhxkbamwcskblr.supabase.co'; 
+        // --- 1. CONFIGURATION SUPABASE ---
+        const SUPABASE_URL = 'https://drhsdlzhxkbamwcskblr.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyaHNkbHpoeGtiYW13Y3NrYmxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyNjg0NDMsImV4cCI6MjA4NTg0NDQ0M30.8nifIWVXkk0VXrlP4zeyMpEhIA-JrWh1Y6P94OdlH_g';
+        
+        // Initialisation immédiate
+        let supabase;
+        try {
+            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            console.log("Supabase initialisé avec succès !");
+        } catch (e) {
+            console.error("Erreur initialisation Supabase :", e);
+            alert("Erreur de chargement. Vérifiez votre connexion.");
+        }
 
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        // --- 2. FONCTIONS ---
 
         function checkLogin() {
-            const pass = document.getElementById('adminPass').value;
+            const pass = document.getElementById('passwordInput').value;
             if(pass === "Souffcarpe1664") {
-                document.getElementById('loginOverlay').style.display = "none";
-                document.getElementById('dashboard').style.display = "block";
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'block';
                 loadSessions();
                 loadReservations();
             } else {
@@ -98,59 +129,78 @@
         }
 
         async function creerSession() {
-            const nom = document.getElementById('sessionName').value;
-            const d1 = document.getElementById('dateStart').value;
-            const d2 = document.getElementById('dateEnd').value;
+            const nom = document.getElementById('nomSession').value;
+            const debut = document.getElementById('dateDebut').value;
+            const fin = document.getElementById('dateFin').value;
 
-            if(!nom || !d1 || !d2) return alert("Remplissez tout !");
+            if(!nom || !debut || !fin) return alert("Remplissez tout !");
 
             const { error } = await supabase.from('sessions').insert({
-                nom: nom, date_debut: d1, date_fin: d2
+                nom: nom,
+                date_debut: debut,
+                date_fin: fin,
+                active: true
             });
 
-            if(error) alert("Erreur: " + error.message);
-            else { alert("Session créée !"); loadSessions(); }
-        }
-
-        async function loadReservations() {
-            // Récupère réservations + infos session liée
-            const { data, error } = await supabase
-                .from('reservations')
-                .select('*, sessions(nom)')
-                .order('id', { ascending: false });
-
-            const tbody = document.querySelector('#resaTable tbody');
-            tbody.innerHTML = '';
-
-            if(data) {
-                data.forEach(r => {
-                    const row = `<tr>
-                        <td>${r.sessions ? r.sessions.nom : 'Inconnu'}</td>
-                        <td>Poste ${r.poste_numero}</td>
-                        <td>${r.nom_client}<br><small>${r.email_client}</small></td>
-                        <td><button class="btn-del" onclick="supprimerResa(${r.id})">X</button></td>
-                    </tr>`;
-                    tbody.innerHTML += row;
-                });
-            }
-        }
-
-        async function supprimerResa(id) {
-            if(confirm("Supprimer cette réservation ?")) {
-                await supabase.from('reservations').delete().eq('id', id);
-                loadReservations();
+            if(error) {
+                console.error(error);
+                alert("Erreur lors de la création : " + error.message);
+            } else {
+                alert("Session créée !");
+                loadSessions(); // Rafraichir la liste déroulante
+                // Vider les champs
+                document.getElementById('nomSession').value = '';
             }
         }
 
         async function loadSessions() {
-            const { data } = await supabase.from('sessions').select('*').order('date_debut');
+            const { data, error } = await supabase.from('sessions').select('*').order('date_debut', { ascending: true });
+            
+            if (error) { console.error("Erreur chargement sessions", error); return; }
+
             const select = document.getElementById('sessionSelect');
             select.innerHTML = '';
-            data.forEach(s => {
+            
+            if (data.length === 0) {
                 const opt = document.createElement('option');
-                opt.value = s.id;
-                opt.innerText = s.nom;
+                opt.innerText = "Aucune session active";
                 select.appendChild(opt);
+            } else {
+                data.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.id;
+                    opt.innerText = `${s.nom} (${s.date_debut})`;
+                    select.appendChild(opt);
+                });
+            }
+        }
+
+        async function loadReservations() {
+            const { data, error } = await supabase
+                .from('reservations')
+                .select(`
+                    id, 
+                    poste_numero, 
+                    nom_client, 
+                    email_client, 
+                    sessions ( nom )
+                `)
+                .order('created_at', { ascending: false });
+
+            if (error) { console.error("Erreur chargement résas", error); return; }
+
+            const tbody = document.getElementById('resaTable');
+            tbody.innerHTML = '';
+
+            data.forEach(r => {
+                const sessionName = r.sessions ? r.sessions.nom : 'Session supprimée';
+                const row = `<tr>
+                    <td>${sessionName}</td>
+                    <td>Poste ${r.poste_numero}</td>
+                    <td>${r.nom_client}<br><small>${r.email_client}</small></td>
+                    <td><button class="btn-del" onclick="supprimerResa(${r.id})">Supprimer</button></td>
+                </tr>`;
+                tbody.innerHTML += row;
             });
         }
 
@@ -158,20 +208,35 @@
             const sessionId = document.getElementById('sessionSelect').value;
             const posteId = document.getElementById('posteSelect').value;
 
+            if (!sessionId) return alert("Aucune session sélectionnée");
+
             const { error } = await supabase.from('reservations').insert({
                 session_id: sessionId,
                 poste_numero: posteId,
                 nom_client: "⛔ BLOQUÉ ADMIN",
-                email_client: "admin@local",
-                telephone_client: "-",
-                paypal_order_id: "MANUEL"
+                email_client: "admin@etang.fr",
+                telephone_client: "0000000000",
+                paypal_order_id: "MANUEL_ADMIN"
             });
 
             if(!error) {
-                alert(`Poste ${posteId} bloqué.`);
+                alert(`✅ Poste ${posteId} bloqué avec succès.`);
                 loadReservations();
             } else {
-                alert("Erreur (Poste sans doute déjà pris)");
+                console.error(error);
+                alert("Erreur : Ce poste est probablement déjà réservé pour cette session.");
+            }
+        }
+
+        async function supprimerResa(id) {
+            if(confirm("Êtes-vous sûr de vouloir supprimer cette réservation ? Cela libérera le poste.")) {
+                const { error } = await supabase.from('reservations').delete().eq('id', id);
+                if (error) {
+                    alert("Erreur suppression");
+                    console.error(error);
+                } else {
+                    loadReservations();
+                }
             }
         }
     </script>
