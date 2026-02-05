@@ -160,8 +160,14 @@
             <input type="tel" id="tel" placeholder="Téléphone">
             
             <!-- Zone PayPal -->
-            <div id="paypal-button-container"></div>
-        </div>
+            <div id="paypal-button-container" style="min-height: 150px; margin-top: 20px;">
+    <p id="paypal-loading" style="color: orange; font-weight: bold;">
+        ⌛ Chargement de PayPal...<br>
+        <span style="font-size:0.8em; color: black; font-weight: normal;">
+        (Si ce message reste affiché, vérifiez votre connexion ou désactivez AdBlock)
+        </span>
+    </p>
+</div>
 
         <br>
         <a href="admin.html" class="admin-link">🔒 Administration</a>
@@ -214,8 +220,74 @@
             });
 
             // Initialiser les boutons PayPal une seule fois
-            renderPayPalButton();
-        }
+           function renderPayPalButton() {
+    // Vérification de sécurité
+    if (typeof paypal === 'undefined') {
+        document.getElementById('paypal-loading').innerHTML = 
+            "❌ <strong>Erreur :</strong> Le module PayPal n'a pas chargé.<br>" +
+            "Vérifiez que la ligne &lt;script src='...paypal...'&gt; est bien dans le &lt;head&gt;.";
+        return;
+    }
+
+    try {
+        paypal.Buttons({
+            // Vérifier les champs avant d'ouvrir PayPal
+            onClick: (data, actions) => {
+                const nom = document.getElementById('nom').value;
+                const email = document.getElementById('email').value;
+                const tel = document.getElementById('tel').value;
+                const poste = document.getElementById('displayPoste').innerText;
+
+                if (!nom || !email || !tel || poste === '?') {
+                    alert("Veuillez remplir TOUS les champs avant de payer.");
+                    return actions.reject();
+                }
+                return actions.resolve();
+            },
+            createOrder: (data, actions) => {
+                return actions.order.create({
+                    purchase_units: [{
+                        description: `Réservation Poste ${selectedPoste}`,
+                        amount: { value: '60.00' }
+                    }]
+                });
+            },
+            onApprove: (data, actions) => {
+                return actions.order.capture().then(async (details) => {
+                    // Masquer le formulaire pour éviter double clic
+                    document.getElementById('form-section').innerHTML = "<h3>✅ Paiement validé ! Enregistrement...</h3>";
+                    
+                    const nom = document.getElementById('nom').value;
+                    const email = document.getElementById('email').value;
+                    const tel = document.getElementById('tel').value;
+
+                    const { error } = await supabase.from('reservations').insert({
+                        session_id: currentSessionId,
+                        poste_numero: selectedPoste,
+                        nom_client: nom,
+                        email_client: email,
+                        telephone_client: tel
+                    });
+
+                    if(error) {
+                        alert("Paiement reçu mais erreur d'enregistrement base de données. Contactez l'admin.");
+                    } else {
+                        alert("✅ Réservation confirmée !");
+                        location.reload();
+                    }
+                });
+            },
+            onError: (err) => {
+                console.error('Erreur PayPal:', err);
+                alert("Erreur lors de l'initialisation du paiement.");
+            }
+        }).render('#paypal-button-container');
+    } catch (error) {
+        console.error("Crash PayPal:", error);
+        document.getElementById('paypal-loading').innerText = "Erreur technique PayPal (voir console F12)";
+    }
+}
+
 
         async function loadMapStatus() {
             const wrapper = document.getElementById('map-wrapper');
@@ -330,3 +402,4 @@
     </script>
 </body>
 </html>
+
