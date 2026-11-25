@@ -73,6 +73,13 @@
 
         const container = document.getElementById('map-container');
 
+        // Réservé aux administrateurs connectés (connexion depuis admin.html)
+        const { data: { session: adminSession } } = await supabase.auth.getSession();
+        if (!adminSession) {
+            alert("Connectez-vous d'abord sur la page Administration.");
+            window.location.href = 'admin.html';
+        }
+
         // Charger positions existantes
         (async function init() {
             const { data } = await supabase.from('postes_config').select('*');

@@ -40,7 +40,8 @@
         <p id="status-msg" style="color:blue;">Connexion à Supabase en cours...</p>
 
         <div id="login-form" style="display:none;">
-            <input type="password" id="passwordInput" placeholder="Mot de passe">
+            <input type="email" id="emailInput" placeholder="Email administrateur" autocomplete="username">
+            <input type="password" id="passwordInput" placeholder="Mot de passe" autocomplete="current-password">
             <button id="btnLogin">Entrer</button>
         </div>
         <div id="error-log"></div>
@@ -49,6 +50,8 @@
     <!-- Tableau de bord -->
     <div id="dashboard" class="container">
         
+        <button id="btnLogout" style="float:right;">Se déconnecter</button>
+
         <!-- BOUTON VERS LE PLAN -->
         <a href="positionnement.html" target="_blank">
             <button class="btn-map">📍 Configurer le Plan (Glisser-Déposer)</button>
@@ -118,14 +121,36 @@
             document.getElementById('error-log').innerText = err.message;
         }
 
-        document.getElementById('btnLogin').addEventListener('click', () => {
-            if(document.getElementById('passwordInput').value === "Souffcarpe1664") {
-                document.getElementById('login-screen').style.display = 'none';
-                document.getElementById('dashboard').style.display = 'block';
-                loadSessions();
-                loadReservations();
-            } else { alert("Mot de passe incorrect"); }
+        // Connexion via Supabase Auth : le mot de passe n'est plus dans le code.
+        // Les droits d'écriture sont vérifiés côté base (Row Level Security).
+        function showDashboard() {
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'block';
+            loadSessions();
+            loadReservations();
+        }
+
+        const { data: { session: existingSession } } = await supabase.auth.getSession();
+        if (existingSession) showDashboard();
+
+        document.getElementById('btnLogin').addEventListener('click', async () => {
+            const email = document.getElementById('emailInput').value.trim();
+            const password = document.getElementById('passwordInput').value;
+            const { error } = await supabase.auth.signInWithPassword({ email, password });
+            if (error) { alert("Identifiants incorrects"); return; }
+            document.getElementById('passwordInput').value = '';
+            showDashboard();
         });
+
+        document.getElementById('btnLogout').addEventListener('click', async () => {
+            await supabase.auth.signOut();
+            location.reload();
+        });
+
+        // Échappe le texte saisi par les visiteurs avant de l'afficher
+        function esc(v) {
+            return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
 
         document.getElementById('btnCreerSession').addEventListener('click', async () => {
             const nom = document.getElementById('nomSession').value;
@@ -154,7 +179,7 @@
             const tbody = document.getElementById('resaTable');
             tbody.innerHTML = '';
             if(data) data.forEach(r => {
-                tbody.innerHTML += `<tr><td>${r.sessions?.nom}</td><td>Poste ${r.poste_numero}</td><td>${r.nom_client}</td><td><button class="btn-del" onclick="window.delResa('${r.id}')">X</button></td></tr>`;
+                tbody.innerHTML += `<tr><td>${esc(r.sessions?.nom)}</td><td>Poste ${esc(r.poste_numero)}</td><td>${esc(r.nom_client)}</td><td><button class="btn-del" onclick="window.delResa('${esc(r.id)}')">X</button></td></tr>`;
             });
         }
         

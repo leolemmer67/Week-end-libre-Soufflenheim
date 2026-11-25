@@ -1,123 +1,42 @@
-# 🎣 Site de Réservation - Section Carpe de Soufflenheim
+# 🎣 Week-End libre — Section Carpe de Soufflenheim
 
-## 📋 Description
-Site web de réservation en ligne pour les week-ends libre de pêche à l'étang Landgraben.
+Site de réservation des postes de pêche pour les week-ends libres à l'étang du Landgraben.
 
-### Fonctionnalités
-✅ Carte interactive de l'étang avec 10 postes de pêche  
-✅ Réservation en ligne avec paiement PayPal  
-✅ Gestion de 4 sessions annuelles  
-✅ Interface admin pour gérer les dates et réservations  
-✅ Postes déplaçables pour ajuster leur position  
-✅ Système de disponibilité en temps réel avec **Supabase**  
-✅ Synchronisation automatique entre tous les utilisateurs
+🌐 Site en ligne : https://week-end-libre-soufflenheim.vercel.app
 
----
+## Fonctionnalités
 
-## 🎉 NOUVEAU : Migration vers Supabase
+- Choix d'une session et d'un poste sur le plan interactif de l'étang (10 postes)
+- Disponibilité des postes en temps réel
+- Formulaire de réservation, règlement via PayPal
+- Espace administration : création des sessions, liste et suppression des réservations, blocage manuel d'un poste
+- Page de positionnement des postes par glisser-déposer
 
-Votre site utilise maintenant **Supabase** au lieu de Firebase !
+## Technique
 
-### ✅ Ce qui est déjà configuré :
-- Base de données Supabase connectée
-- Synchronisation temps réel activée
-- Toutes les fonctionnalités opérationnelles
+- Pages HTML statiques : `index.html` (public), `admin.html`, `positionnement.html`
+- Base de données et connexion des administrateurs : [Supabase](https://supabase.com)
+- Hébergement : Vercel (déploiement automatique à chaque modification sur GitHub)
 
-### 🔑 Vos identifiants Supabase :
-- **URL** : `https://drhsdlzhxkbamwcskblr.supabase.co`
-- **Table** : `sessions`
-- Les clés sont déjà intégrées dans les fichiers HTML
+## Sécurité
 
----
+- **Aucun mot de passe n'est stocké dans le code.** Les administrateurs se connectent avec un compte Supabase (email + mot de passe), géré dans Supabase → *Authentication → Users*.
+- Les droits sont appliqués par la base elle-même (Row Level Security) : un visiteur peut voir quels postes sont pris et réserver, mais ne peut ni lire les coordonnées des autres clients, ni modifier ou supprimer quoi que ce soit.
+- Le script de configuration est dans [`supabase/securite.sql`](supabase/securite.sql).
+- La clé Supabase présente dans les pages est la clé publique « anon » : elle est faite pour être visible, la protection repose sur les règles de la base.
 
-## 🚀 Déploiement sur Netlify
+### Ajouter un administrateur
 
-### Étapes :
+Supabase → *Authentication → Users → Add user → Create new user* (email + mot de passe, cocher *Auto Confirm User*).
 
-1. **Préparer les fichiers** :
-   - Tous vos fichiers sont prêts : `index.html`, `admin.html`, `config.json`, `pond.jpg`, `logo.png`
+### Désactiver les inscriptions publiques
 
-2. **Déployer sur Netlify** :
-   - Allez sur [netlify.com](https://netlify.com)
-   - "Add new site" → "Deploy manually"
-   - Glissez-déposez TOUS les fichiers
-   - C'est en ligne ! 🎉
+Supabase → *Authentication → Sign In / Providers* → désactiver *Allow new users to sign up*, pour que personne ne puisse se créer un compte administrateur.
 
-3. **Tester** :
-   - Visitez votre site
-   - Testez une réservation (elle sera enregistrée dans Supabase)
-   - Vérifiez l'admin (mot de passe : `Souffcarpe1664`)
+## Structure de la base
 
----
-
-## 📍 Positionner les postes
-
-1. **Admin** → Mot de passe : `Souffcarpe1664`
-2. **"📍 Modifier les positions des postes"**
-3. **Glissez-déposez** les postes
-4. **"💾 Enregistrer"** → Télécharge `config.json`
-5. **Re-déployer** sur Netlify avec le nouveau fichier
-
----
-
-## 🔧 Configuration
-
-### Mot de passe admin
-`Souffcarpe1664`
-
-### PayPal
-Dans `index.html` ligne ~626, changez :
-```javascript
-window.location.href = 'https://www.paypal.me/votrecompte/30EUR';
-```
-
-### Dates des sessions
-Via l'admin → Modifier directement
-
----
-
-## 📱 Utilisation
-
-**Visiteurs :**
-1. Choisir session (◄ ►)
-2. Cliquer sur poste vert
-3. Remplir formulaire
-4. Payer PayPal
-
-**Admin :**
-1. Bouton "⚙️ Admin"
-2. Mot de passe
-3. Gérer les sessions, dates, réservations
-
----
-
-## 🔄 Structure de la base Supabase
-
-Votre table `sessions` contient :
-- `id` : ID auto (clé primaire)
-- `session_id` : 1, 2, 3 ou 4
-- `date` : Texte (ex: "15-16 Mars 2025")
-- `reservations` : JSON (liste des réservations)
-- `closed_spots` : JSON (postes fermés manuellement)
-- `created_at` : Timestamp
-
-Tout est synchronisé automatiquement ! 🚀
-
----
-
-## 🆘 Besoin d'aide ?
-
-Contactez-moi pour :
-- Configuration PayPal  
-- Ajout de fonctionnalités
-- Support technique
-
----
-
-## ✅ Avantages de Supabase vs Firebase
-
-✅ Pas de problème d'`eval()` avec Netlify  
-✅ Synchronisation temps réel native  
-✅ Base PostgreSQL robuste  
-✅ Interface admin claire  
-✅ Gratuit jusqu'à 500 MB de stockage
+| Table | Contenu |
+|---|---|
+| `sessions` | `id`, `nom`, `date_debut`, `date_fin`, `active` |
+| `reservations` | `id`, `session_id`, `poste_numero`, `nom_client`, `email_client`, `telephone_client`, `paypal_order_id`, `created_at` |
+| `postes_config` | `poste_id`, `pos_x`, `pos_y` (position en % sur le plan) |
